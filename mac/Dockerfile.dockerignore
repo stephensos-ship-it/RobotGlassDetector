@@ -1,0 +1,5 @@
+# The image needs only the source bundle, its tool and the entrypoint; skip build output.
+*
+!tiago_jazzy_ws/tools/
+!tiago_jazzy_ws/source_bundle/
+!mac/entrypoint.sh
