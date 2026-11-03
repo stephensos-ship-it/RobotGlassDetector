@@ -24,6 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'obstacle_detector = myrobot_perception.obstacle_detector:main',
         ],
     },
 )
