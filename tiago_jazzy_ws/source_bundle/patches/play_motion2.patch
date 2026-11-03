@@ -1,0 +1,1011 @@
+diff --git a/play_motion2/launch/play_motion2.launch.py b/play_motion2/launch/play_motion2.launch.py
+index b9adef15e998c8e91a6c7d99da663f067df551ee..108107763dc43ac5d280c811dd5e846b85af8d92 100644
+--- a/play_motion2/launch/play_motion2.launch.py
++++ b/play_motion2/launch/play_motion2.launch.py
+@@ -15,7 +15,6 @@
+ import os
+ 
+ from ament_index_python.packages import get_package_share_directory
+-
+ from launch import LaunchDescription
+ from launch.actions import DeclareLaunchArgument
+ from launch.substitutions import LaunchConfiguration
+@@ -25,18 +24,22 @@ from launch_ros.actions import Node
+ def generate_launch_description():
+ 
+     sim_time_arg = DeclareLaunchArgument(
+-        'use_sim_time', default_value='False',
+-        description='Specify whether to use simulation time or not. ')
++        'use_sim_time',
++        default_value='False',
++        description='Specify whether to use simulation time or not. ',
++    )
+ 
+     motions_config = DeclareLaunchArgument(
+-        'motions_file',
+-        description='Yaml file with the info of the motions. ')
++        'motions_file', description='Yaml file with the info of the motions. '
++    )
+ 
+     motion_planner_config = DeclareLaunchArgument(
+         'motion_planner_config',
+         default_value=os.path.join(
+-            get_package_share_directory('play_motion2'), 'config', 'motion_planner_config.yaml'),
+-        description='Configuration for the motion planner. ')
++            get_package_share_directory('play_motion2'), 'config', 'motion_planner_config.yaml'
++        ),
++        description='Configuration for the motion planner. ',
++    )
+ 
+     play_motion2 = Node(
+         package='play_motion2',
+@@ -46,7 +49,7 @@ def generate_launch_description():
+         parameters=[
+             LaunchConfiguration('motions_file'),
+             LaunchConfiguration('motion_planner_config'),
+-            {'use_sim_time': LaunchConfiguration('use_sim_time')}
++            {'use_sim_time': LaunchConfiguration('use_sim_time')},
+         ],
+         remappings=[
+             ('/play_motion2_executor/robot_description', '/robot_description'),
+diff --git a/play_motion2/play_motion2/__init__.py b/play_motion2/play_motion2/__init__.py
+index b7bc7577f7ef7d2b2c0ebb6a6decda22741c2cec..103a61d6608cd98a4ca74d5bcda01847fa396ffb 100644
+--- a/play_motion2/play_motion2/__init__.py
++++ b/play_motion2/play_motion2/__init__.py
+@@ -14,10 +14,11 @@
+ 
+ from play_motion2_msgs.action import PlayMotion2
+ from play_motion2_msgs.msg import Motion
+-from play_motion2_msgs.srv import (
+-    AddMotion, GetMotionInfo, IsMotionReady, ListMotions, RemoveMotion
+-)
+-
++from play_motion2_msgs.srv import AddMotion
++from play_motion2_msgs.srv import GetMotionInfo
++from play_motion2_msgs.srv import IsMotionReady
++from play_motion2_msgs.srv import ListMotions
++from play_motion2_msgs.srv import RemoveMotion
+ from rclpy import spin_until_future_complete
+ from rclpy.action import ActionClient
+ from rclpy.node import Node
+@@ -36,9 +37,11 @@ class PlayMotion2ClientPy(Node):
+ 
+         self.list_motions_client = self.create_client(ListMotions, 'play_motion2/list_motions')
+         self.is_motion_ready_client = self.create_client(
+-            IsMotionReady, 'play_motion2/is_motion_ready')
++            IsMotionReady, 'play_motion2/is_motion_ready'
++        )
+         self.get_motion_info_client = self.create_client(
+-            GetMotionInfo, 'play_motion2/get_motion_info')
++            GetMotionInfo, 'play_motion2/get_motion_info'
++        )
+         self.add_motion_client = self.create_client(AddMotion, 'play_motion2/add_motion')
+         self.remove_motion_client = self.create_client(RemoveMotion, 'play_motion2/remove_motion')
+ 
+@@ -47,8 +50,9 @@ class PlayMotion2ClientPy(Node):
+ 
+         self.last_succeeded = False
+ 
+-    def run_motion(self, motion_name: str, skip_planning: bool = False,
+-                   motion_timeout: float = 120.0) -> bool:
++    def run_motion(
++        self, motion_name: str, skip_planning: bool = False, motion_timeout: float = 120.0
++    ) -> bool:
+         """
+         Run a motion with the specified name.
+ 
+@@ -67,7 +71,8 @@ class PlayMotion2ClientPy(Node):
+                     return True
+                 else:
+                     self.get_logger().error(
+-                        f'Motion {motion_name} failed to execute: {result.result.error}.')
++                        f'Motion {motion_name} failed to execute: {result.result.error}.'
++                    )
+ 
+         # The motion wasn't send successfully
+         return False
+diff --git a/play_motion2/src/play_motion2_main.cpp b/play_motion2/src/play_motion2_main.cpp
+index 35e76bf484446980fe1b6b0149cd2725e376a8cf..0b47162c765d55d5cb218efa74f2254d2a0241a3 100644
+--- a/play_motion2/src/play_motion2_main.cpp
++++ b/play_motion2/src/play_motion2_main.cpp
+@@ -28,7 +28,7 @@ int main(int argc, char ** argv)
+     automatically_declare_parameters_from_overrides(
+     true);
+ 
+-  rclcpp::executors::MultiThreadedExecutor executor;
++  rclcpp::executors::MultiThreadedExecutor executor(rclcpp::ExecutorOptions(), 4);
+ 
+   auto mgrNode = std::make_shared<play_motion2::PlayMotion2Mgr>(options);
+   executor.add_node(mgrNode->get_node_base_interface());
+@@ -37,6 +37,9 @@ int main(int argc, char ** argv)
+   executor.add_node(executorNode->get_node_base_interface());
+ 
+   executorNode->configure();
++  if (!rclcpp::ok()) {
++    return 0;
++  }
+   mgrNode->configure();
+   executor.spin_some();
+ 
+diff --git a/play_motion2/src/utils/motion_planner.cpp b/play_motion2/src/utils/motion_planner.cpp
+index 48c7d40e164ad219cc2dba4243eafb6f415e814f..ab65afc51e2aadb990c3d5dae0753f11d14fca03 100644
+--- a/play_motion2/src/utils/motion_planner.cpp
++++ b/play_motion2/src/utils/motion_planner.cpp
+@@ -89,7 +89,7 @@ MotionPlanner::MotionPlanner(rclcpp_lifecycle::LifecycleNode::SharedPtr node)
+ 
+   joint_states_sub_ =
+     node_->create_subscription<JointState>(
+-    "/joint_states", 1,
++    "joint_states", 1,
+     std::bind(&MotionPlanner::joint_states_callback, this, _1), options);
+ 
+ #if RCLCPP_VERSION_MAJOR >= 17
+@@ -101,9 +101,13 @@ MotionPlanner::MotionPlanner(rclcpp_lifecycle::LifecycleNode::SharedPtr node)
+   const rmw_qos_profile_t qos_services = rmw_qos_profile_default;
+ #endif
+   list_controllers_client_ = node_->create_client<ListControllers>(
+-    "/controller_manager/list_controllers", qos_services, motion_planner_cb_group_);
++    "controller_manager/list_controllers", qos_services, motion_planner_cb_group_);
+ 
+-  move_group_node_ = rclcpp::Node::make_shared("_move_group_node", node_->get_name());
++  const auto parameters = node_->get_parameters(node_->list_parameters({}, 0).names);
++  move_group_node_ = rclcpp::Node::make_shared(
++    "_move_group_node", node_->get_namespace(),
++    rclcpp::NodeOptions().parameter_overrides(parameters)
++    .automatically_declare_parameters_from_overrides(true));
+ 
+   check_parameters();
+ }
+@@ -188,23 +192,34 @@ void MotionPlanner::check_parameters()
+   // Wait for robot_description and robot_description_semantic to be published
+   // to avoid dying when creating MoveGroupInterface objects after 10 seconds.
+   const auto wait_for_description = [&](const std::string & topic) {
++      if (move_group_node_->has_parameter(topic) &&
++        !move_group_node_->get_parameter(topic).as_string().empty())
++      {
++        return;
++      }
+       std_msgs::msg::String description;
+       const auto subscription = node_->create_subscription<std_msgs::msg::String>(
+         topic, rclcpp::QoS(1).transient_local(),
+         [](const std_msgs::msg::String::SharedPtr) {});
+ 
+-      while (!rclcpp::wait_for_message(
++      while (rclcpp::ok() && !rclcpp::wait_for_message(
+           description, subscription, move_group_node_->get_node_options().context(), 10s))
+       {
+         RCLCPP_WARN(node_->get_logger(), "Waiting for %s to be published", topic.c_str());
+       }
+     };
+ 
+-  wait_for_description("/robot_description");
+-  wait_for_description("/robot_description_semantic");
++  wait_for_description("robot_description");
++  wait_for_description("robot_description_semantic");
++
++  if (!rclcpp::ok()) {
++    return;
++  }
+ 
+   for (const auto & group : planning_groups_) {
+-    move_groups_.emplace_back(std::make_shared<MoveGroupInterface>(move_group_node_, group));
++    move_groups_.emplace_back(std::make_shared<MoveGroupInterface>(
++        move_group_node_, MoveGroupInterface::Options(
++          group, "robot_description", node_->get_namespace())));
+   }
+ 
+   move_group_executor_ = std::make_shared<rclcpp::executors::SingleThreadedExecutor>();
+@@ -694,7 +709,7 @@ FollowJTGoalHandleFutureResult MotionPlanner::send_trajectory(
+   } else {
+     action_client = rclcpp_action::create_client<FollowJointTrajectory>(
+       node_,
+-      "/" + controller_name + "/follow_joint_trajectory",
++      controller_name + "/follow_joint_trajectory",
+       motion_planner_cb_group_);
+     action_clients_[controller_name] = action_client;
+   }
+diff --git a/play_motion2/test/play_motion2_node_test.launch.py b/play_motion2/test/play_motion2_node_test.launch.py
+index 432daeec88e2ad3066ecbefe21babc5a725a16ae..178e70e0d5548593d715739c3775738bca3be531 100644
+--- a/play_motion2/test/play_motion2_node_test.launch.py
++++ b/play_motion2/test/play_motion2_node_test.launch.py
+@@ -30,25 +30,27 @@ TEST_DIR = str(pathlib.Path(__file__).resolve().parent)
+ def generate_test_description():
+ 
+     rrbot = IncludeLaunchDescription(
+-        PythonLaunchDescriptionSource(
+-            TEST_DIR + '/rrbot/rrbot.launch.py'
+-        )
++        PythonLaunchDescriptionSource(TEST_DIR + '/rrbot/rrbot.launch.py')
+     )
+ 
+     play_motion2 = IncludeLaunchDescription(
+         PythonLaunchDescriptionSource(
+             PathJoinSubstitution(
+-                [FindPackageShare('play_motion2'), 'launch', 'play_motion2.launch.py'])),
++                [FindPackageShare('play_motion2'), 'launch', 'play_motion2.launch.py']
++            )
++        ),
+         launch_arguments={
+             'motions_file': TEST_DIR + '/play_motion2_config.yaml',
+             'use_sim_time': 'False',
+-        }.items()
++        }.items(),
+     )
+ 
+     play_motion2_node_test = launch_testing.actions.GTest(
+-        path=os.path.join(get_package_prefix('play_motion2'), 'lib',
+-                          'play_motion2', 'play_motion2_node_test'),
+-        output='screen')
++        path=os.path.join(
++            get_package_prefix('play_motion2'), 'lib', 'play_motion2', 'play_motion2_node_test'
++        ),
++        output='screen',
++    )
+ 
+     ld = LaunchDescription()
+ 
+@@ -64,14 +66,11 @@ def generate_test_description():
+ 
+ 
+ class TestPlayMotion(unittest.TestCase):
+-
+     def test_wait(self, play_motion2_node_test, proc_info):
+         proc_info.assertWaitForShutdown(process=play_motion2_node_test, timeout=(60))
+ 
+ 
+ @launch_testing.post_shutdown_test()
+ class TestProcessOutput(unittest.TestCase):
+-
+     def test_exit_code(self, play_motion2_node_test, proc_info):
+-        launch_testing.asserts.assertExitCodes(
+-            proc_info, process=play_motion2_node_test)
++        launch_testing.asserts.assertExitCodes(proc_info, process=play_motion2_node_test)
+diff --git a/play_motion2/test/rrbot/rrbot.launch.py b/play_motion2/test/rrbot/rrbot.launch.py
+index ecf0644579cbfc64f1a26d7e1f23c2319e34051d..5a00f108abd46d9898b8f6ed9551120844ed78c9 100644
+--- a/play_motion2/test/rrbot/rrbot.launch.py
++++ b/play_motion2/test/rrbot/rrbot.launch.py
+@@ -46,10 +46,8 @@ def generate_launch_description():
+ 
+     # Visualize the robot for debugging purposes
+     use_rviz = DeclareLaunchArgument(
+-        'rviz',
+-        default_value='False',
+-        description='Whether run rviz',
+-        choices=['True', 'False'])
++        'rviz', default_value='False', description='Whether run rviz', choices=['True', 'False']
++    )
+ 
+     robot_description_config = xacro.process_file(RRBOT_DIR + '/rrbot.xacro')
+     robot_description = {'robot_description': robot_description_config.toxml()}
+@@ -59,23 +57,29 @@ def generate_launch_description():
+         executable='ros2_control_node',
+         parameters=[robot_description, RRBOT_DIR + '/controllers.yaml'],
+         output='both',
+-        emulate_tty=True
++        emulate_tty=True,
+     )
+ 
+     joint_state_broadcaster_spawner = define_controller_spawner('joint_state_broadcaster')
+     controller_1_spawner = define_controller_spawner('controller_1')
+     controller_2_spawner = define_controller_spawner('controller_2')
+     controller_1_low_constraints_spawner = define_controller_spawner(
+-        'controller_1_low_constraints', active=False)
++        'controller_1_low_constraints', active=False
++    )
+     chained_controllers_spawner = define_controller_spawner(
+-        'chained_controller', False, 'passthrough_controller_j1',
+-        'passthrough_controller_j2', '--activate-as-group')
++        'chained_controller',
++        False,
++        'passthrough_controller_j1',
++        'passthrough_controller_j2',
++        '--activate-as-group',
++    )
+ 
+     robot_state_publisher_node = Node(
+         package='robot_state_publisher',
+         executable='robot_state_publisher',
+         output='both',
+-        parameters=[robot_description])
++        parameters=[robot_description],
++    )
+ 
+     rviz_config_file = RRBOT_DIR + '/rrbot.rviz'
+     rviz_node = Node(
+@@ -84,7 +88,7 @@ def generate_launch_description():
+         name='rviz2',
+         output='log',
+         arguments=['-d', rviz_config_file],
+-        condition=IfCondition(LaunchConfiguration('rviz'))
++        condition=IfCondition(LaunchConfiguration('rviz')),
+     )
+ 
+     ld = LaunchDescription()
+diff --git a/play_motion2/test/test_client.py b/play_motion2/test/test_client.py
+index 7211154b23cb8e4439521d0ba70f61050eac18aa..d537bf7ff9de330d1233c6dfc17532454d5db77a 100644
+--- a/play_motion2/test/test_client.py
++++ b/play_motion2/test/test_client.py
+@@ -19,14 +19,16 @@ import unittest
+ from play_motion2 import PlayMotion2ClientPy
+ from play_motion2_msgs.action import PlayMotion2
+ from play_motion2_msgs.msg import Motion
+-from play_motion2_msgs.srv import (
+-    AddMotion, GetMotionInfo, IsMotionReady, ListMotions, RemoveMotion
+-)
+-
++from play_motion2_msgs.srv import AddMotion
++from play_motion2_msgs.srv import GetMotionInfo
++from play_motion2_msgs.srv import IsMotionReady
++from play_motion2_msgs.srv import ListMotions
++from play_motion2_msgs.srv import RemoveMotion
+ import rclpy
+ from rclpy.action import ActionServer
+ from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+-from rclpy.executors import MultiThreadedExecutor, SingleThreadedExecutor
++from rclpy.executors import MultiThreadedExecutor
++from rclpy.executors import SingleThreadedExecutor
+ 
+ 
+ class ClientTest(unittest.TestCase):
+@@ -56,29 +58,40 @@ class ClientTest(unittest.TestCase):
+ 
+         # Create playmotion AS
+         self._playmotion_action_server = ActionServer(
+-            self._node_srv, PlayMotion2, 'play_motion2', self.execute_callback,
+-            callback_group=self._ac_callbackgroup)
++            self._node_srv,
++            PlayMotion2,
++            'play_motion2',
++            self.execute_callback,
++            callback_group=self._ac_callbackgroup,
++        )
+ 
+         # Create service servers
+         self._list_motions_srv = self._node_srv.create_service(
+-            ListMotions, 'play_motion2/list_motions', self.list_motions_callback)
++            ListMotions, 'play_motion2/list_motions', self.list_motions_callback
++        )
+         self._is_motion_ready_srv = self._node_srv.create_service(
+-            IsMotionReady, 'play_motion2/is_motion_ready', self.is_motion_ready_callback)
++            IsMotionReady, 'play_motion2/is_motion_ready', self.is_motion_ready_callback
++        )
+         self._get_motion_info_srv = self._node_srv.create_service(
+-            GetMotionInfo, 'play_motion2/get_motion_info', self.get_motion_info_callback)
++            GetMotionInfo, 'play_motion2/get_motion_info', self.get_motion_info_callback
++        )
+         self._add_motion_srv = self._node_srv.create_service(
+-            AddMotion, 'play_motion2/add_motion', self.add_motion_callback)
++            AddMotion, 'play_motion2/add_motion', self.add_motion_callback
++        )
+         self._remove_motion_srv = self._node_srv.create_service(
+-            RemoveMotion, 'play_motion2/remove_motion', self.remove_motion_callback)
++            RemoveMotion, 'play_motion2/remove_motion', self.remove_motion_callback
++        )
+ 
+         self._executor_srv.add_node(self._node_srv)
+-        self._runner_srv = Thread(target=lambda executor: executor.spin(),
+-                                  args=([self._executor_srv]), daemon=True).start()
++        self._runner_srv = Thread(
++            target=lambda executor: executor.spin(), args=([self._executor_srv]), daemon=True
++        ).start()
+ 
+         self.cli = PlayMotion2ClientPy()
+         self._executor_cli.add_node(self.cli)
+-        self._runner_cli = Thread(target=lambda executor: executor.spin(),
+-                                  args=([self._executor_cli]), daemon=True).start()
++        self._runner_cli = Thread(
++            target=lambda executor: executor.spin(), args=([self._executor_cli]), daemon=True
++        ).start()
+ 
+     def tearDown(self):
+         self._executor_srv.shutdown()
+@@ -93,13 +106,15 @@ class ClientTest(unittest.TestCase):
+         response.motion_keys = [motion.key for motion in self.motion_list]
+         return response
+ 
+-    def is_motion_ready_callback(self, request: IsMotionReady.Request,
+-                                 response: IsMotionReady.Response):
++    def is_motion_ready_callback(
++        self, request: IsMotionReady.Request, response: IsMotionReady.Response
++    ):
+         response.is_ready = any(motion.key == request.motion_key for motion in self.motion_list)
+         return response
+ 
+-    def get_motion_info_callback(self, request: GetMotionInfo.Request,
+-                                 response: GetMotionInfo.Response):
++    def get_motion_info_callback(
++        self, request: GetMotionInfo.Request, response: GetMotionInfo.Response
++    ):
+         for motion in self.motion_list:
+             if motion.key == request.motion_key:
+                 response.motion = motion
+@@ -108,8 +123,7 @@ class ClientTest(unittest.TestCase):
+         response.motion = Motion()
+         return response
+ 
+-    def add_motion_callback(self, request: AddMotion.Request,
+-                            response: AddMotion.Response):
++    def add_motion_callback(self, request: AddMotion.Request, response: AddMotion.Response):
+         if request.motion.key in [motion.key for motion in self.motion_list]:
+             if request.overwrite:
+                 # Update existing motion
+@@ -125,8 +139,9 @@ class ClientTest(unittest.TestCase):
+ 
+         return response
+ 
+-    def remove_motion_callback(self, request: RemoveMotion.Request,
+-                               response: RemoveMotion.Response):
++    def remove_motion_callback(
++        self, request: RemoveMotion.Request, response: RemoveMotion.Response
++    ):
+         for motion in self.motion_list:
+             if motion.key == request.motion_key:
+                 self.motion_list.remove(motion)
+@@ -137,8 +152,10 @@ class ClientTest(unittest.TestCase):
+         return response
+ 
+     def execute_callback(self, goal_handle):
+-        if any(motion.key == goal_handle.request.motion_name
+-               for motion in self.motion_list) is False:
++        if (
++            any(motion.key == goal_handle.request.motion_name for motion in self.motion_list)
++            is False
++        ):
+             goal_handle.abort()
+             result = PlayMotion2.Result()
+             result.success = False
+@@ -251,10 +268,11 @@ class ClientTest(unittest.TestCase):
+         self.finish_motion(success=True)
+         self.assertTrue(self.cli.wait_for_motion_result(timeout_sec=0.5))
+ 
+-        self.assertTrue(self.cli.last_succeeded,
+-                        f'Motion {motion_name} should have succeeded')
+-        self.assertFalse(self.cli.is_running_motion(),
+-                         f'Motion {motion_name} should not be running after finish')
++        self.assertTrue(self.cli.last_succeeded, f'Motion {motion_name} should have succeeded')
++        self.assertFalse(
++            self.cli.is_running_motion(),
++            f'Motion {motion_name} should not be running after finish',
++        )
+ 
+     def test_play_motion_non_existent(self):
+         # Test playing a motion that does not exist
+diff --git a/play_motion2_cli/play_motion2_cli/api/__init__.py b/play_motion2_cli/play_motion2_cli/api/__init__.py
+index e3806474223b7f9c29080516a53994eecc6df4eb..de52988233ca579ee4d9ab02254e6f8b40b62978 100644
+--- a/play_motion2_cli/play_motion2_cli/api/__init__.py
++++ b/play_motion2_cli/play_motion2_cli/api/__init__.py
+@@ -31,10 +31,7 @@ class MotionNameCompleter:
+ 
+ 
+ def add_motion_name_argument(verb_subparser: ArgumentParser):
+-    arg = verb_subparser.add_argument(
+-        'motion_name',
+-        help="Name of the motion (e.g. 'head_down')"
+-    )
++    arg = verb_subparser.add_argument('motion_name', help="Name of the motion (e.g. 'head_down')")
+     arg.completer = MotionNameCompleter()
+ 
+ 
+diff --git a/play_motion2_cli/play_motion2_cli/command/play_motion.py b/play_motion2_cli/play_motion2_cli/command/play_motion.py
+index f4f0a1ffad7409a24546831b9ece5fa21ec70068..4cf5229e59b21898f3c8f594563f9154b0d17d34 100644
+--- a/play_motion2_cli/play_motion2_cli/command/play_motion.py
++++ b/play_motion2_cli/play_motion2_cli/command/play_motion.py
+@@ -23,7 +23,8 @@ class PlayMotionCommand(CommandExtension):
+         self._subparser = parser
+         # add arguments and sub-commands of verbs
+         add_subparsers_on_demand(
+-            parser, cli_name, '_verb', 'play_motion2_cli.verb', required=False)
++            parser, cli_name, '_verb', 'play_motion2_cli.verb', required=False
++        )
+ 
+     def main(self, *, parser, args):
+         if not hasattr(args, '_verb'):
+diff --git a/play_motion2_cli/play_motion2_cli/verb/info.py b/play_motion2_cli/play_motion2_cli/verb/info.py
+index 84ff97e9af282b97f8824795c0e9332feb56d164..dca296df3db89ab81c507b13de148ad1c2ad5211 100644
+--- a/play_motion2_cli/play_motion2_cli/verb/info.py
++++ b/play_motion2_cli/play_motion2_cli/verb/info.py
+@@ -12,7 +12,8 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
+-from play_motion2_cli.api import add_motion_name_argument, create_playmotion_client
++from play_motion2_cli.api import add_motion_name_argument
++from play_motion2_cli.api import create_playmotion_client
+ from play_motion2_cli.verb import VerbExtension
+ from ros2cli.node.strategy import add_arguments
+ 
+@@ -28,11 +29,11 @@ class InfoVerb(VerbExtension):
+             '-v',
+             action='store_true',
+             help='Prints detailed information like the motion name, usage, joint positions, '
+-                 'and Times from start')
++            'and Times from start',
++        )
+ 
+     def main(self, *, args):
+         with create_playmotion_client('cli_play_motion2_client_py') as play_motion2_client:
+-
+             motion = play_motion2_client.get_motion_info(args.motion_name)
+             if motion is None:
+                 return
+@@ -49,8 +50,9 @@ class InfoVerb(VerbExtension):
+             if args.verbose:
+                 max_joint_len = max(len(joint) for joint in motion.joints)
+                 n_positions = len(motion.times_from_start)
+-                header = f"{'Joint':<{max_joint_len + 3}} " + '     '.join(
+-                    f'pos{i+1}' for i in range(n_positions))
++                header = f'{"Joint":<{max_joint_len + 3}} ' + '     '.join(
++                    f'pos{i + 1}' for i in range(n_positions)
++                )
+                 separation = '-' * (len(header) + 1)
+ 
+                 print('\nJoints and positions:')
+diff --git a/play_motion2_cli/play_motion2_cli/verb/list.py b/play_motion2_cli/play_motion2_cli/verb/list.py
+index c0cf809237a9a488900995bdb9f4a8082ca70725..76b0c9439b719b06cb9a58343c37ccfce7caae1a 100644
+--- a/play_motion2_cli/play_motion2_cli/verb/list.py
++++ b/play_motion2_cli/play_motion2_cli/verb/list.py
+@@ -23,8 +23,11 @@ class ListVerb(VerbExtension):
+     def add_arguments(self, parser, cli_name):
+         add_arguments(parser)
+         parser.add_argument(
+-            '-r', '--is-ready', action='store_true',
+-            help='Additionally show if the motion is ready')
++            '-r',
++            '--is-ready',
++            action='store_true',
++            help='Additionally show if the motion is ready',
++        )
+ 
+     def main(self, *, args):
+         with create_playmotion_client('cli_play_motion2_client_py') as play_motion2_client:
+@@ -33,6 +36,6 @@ class ListVerb(VerbExtension):
+             for name in play_motion_list:
+                 if args.is_ready:
+                     motion = play_motion2_client.is_motion_ready(name)
+-                    print(f"{name} [{'Ready' if motion else 'Not ready'}]")
++                    print(f'{name} [{"Ready" if motion else "Not ready"}]')
+                 else:
+                     print(name)
+diff --git a/play_motion2_cli/play_motion2_cli/verb/run.py b/play_motion2_cli/play_motion2_cli/verb/run.py
+index 465ab945eb9a33415b2742dc685e65cb64f92d60..7c0af1ad8bb643778e9e2d7598bec2572362bd06 100644
+--- a/play_motion2_cli/play_motion2_cli/verb/run.py
++++ b/play_motion2_cli/play_motion2_cli/verb/run.py
+@@ -12,9 +12,9 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
+-from play_motion2_cli.api import add_motion_name_argument, create_playmotion_client
++from play_motion2_cli.api import add_motion_name_argument
++from play_motion2_cli.api import create_playmotion_client
+ from play_motion2_cli.verb import VerbExtension
+-
+ import rclpy
+ from ros2cli.node.strategy import add_arguments
+ 
+@@ -28,7 +28,8 @@ class RunVerb(VerbExtension):
+         parser.add_argument(
+             '--skip-planning',
+             action='store_true',
+-            help='Whether to skip planning for approaching to the first position or not.')
++            help='Whether to skip planning for approaching to the first position or not.',
++        )
+ 
+     def main(self, *, args):
+         with create_playmotion_client('cli_play_motion2_client_py') as play_motion2_client:
+@@ -52,4 +53,5 @@ class RunVerb(VerbExtension):
+                 print('The motion has been executed correctly')
+             else:
+                 rclpy.logging.get_logger('run_motion').error(
+-                    f'The motion has failed with the error: {result_response.result.error}')
++                    f'The motion has failed with the error: {result_response.result.error}'
++                )
+diff --git a/play_motion2_cli/setup.py b/play_motion2_cli/setup.py
+index d74d806398fab1388fe273880303107659be0c8e..ca3c88106970b1fda90721f992a58c4829d73aed 100644
+--- a/play_motion2_cli/setup.py
++++ b/play_motion2_cli/setup.py
+@@ -9,8 +9,7 @@ setup(
+     packages=find_packages(exclude=['test']),
+     data_files=[
+         ('share/' + package_name, ['package.xml']),
+-        ('share/ament_index/resource_index/packages',
+-            ['resource/' + package_name]),
++        ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
+     ],
+     install_requires=['ros2cli'],
+     zip_safe=True,
+@@ -38,5 +37,5 @@ setup(
+             'info = play_motion2_cli.verb.info:InfoVerb',
+             'run = play_motion2_cli.verb.run:RunVerb',
+         ],
+-    }
++    },
+ )
+diff --git a/play_motion2_cli/test/fixtures/play_motion_server.py b/play_motion2_cli/test/fixtures/play_motion_server.py
+index 6a8a8f163c9207d8e33243d973940eed916567d5..d9aa3353d42b2445eed93352aadb7375d14857ed 100644
+--- a/play_motion2_cli/test/fixtures/play_motion_server.py
++++ b/play_motion2_cli/test/fixtures/play_motion_server.py
+@@ -16,10 +16,12 @@ import sys
+ 
+ from play_motion2_msgs.action import PlayMotion2
+ from play_motion2_msgs.msg import Motion
+-from play_motion2_msgs.srv import GetMotionInfo, IsMotionReady, ListMotions
+-
++from play_motion2_msgs.srv import GetMotionInfo
++from play_motion2_msgs.srv import IsMotionReady
++from play_motion2_msgs.srv import ListMotions
+ import rclpy
+-from rclpy.action import ActionServer, GoalResponse
++from rclpy.action import ActionServer
++from rclpy.action import GoalResponse
+ from rclpy.node import Node
+ 
+ EXPECTED_MOTIONS = {
+@@ -35,33 +37,32 @@ MOTIONS_INFO = {
+         'name': 'Nod Head',
+         'usage': 'Affirmative gesture',
+         'description': "Moves head up and down like saying 'yes'",
+-
+         'joints': ['neck_pitch'],
+         'positions': [0.2, -0.2, 0.2],
+-        'times_from_start': [0.0, 1.0, 2.0]
++        'times_from_start': [0.0, 1.0, 2.0],
+     },
+     'wave': {
+         'key': 'wave',
+         'name': 'Wave Hand',
+         'usage': 'Greeting',
+         'description': 'Waves hand left and right',
+-
+         'joints': ['shoulder_joint', 'elbow_joint'],
+         'positions': [0.0, 1.2],
+-        'times_from_start': [0.2]
+-    }
++        'times_from_start': [0.2],
++    },
+ }
+ 
+ 
+ class DummyPlayMotionServer(Node):
+-
+     def __init__(self):
+         super().__init__('play_motion2')
+         self.list_server = self.create_service(ListMotions, 'list_motions', self.list_callback)
+         self.is_motion_ready_server = self.create_service(
+-            IsMotionReady, 'is_motion_ready', self.is_motion_ready_callback)
++            IsMotionReady, 'is_motion_ready', self.is_motion_ready_callback
++        )
+         self.get_info_server = self.create_service(
+-            GetMotionInfo, 'get_motion_info', self.get_info_callback)
++            GetMotionInfo, 'get_motion_info', self.get_info_callback
++        )
+         self.action_server = ActionServer(
+             self,
+             PlayMotion2,
+diff --git a/play_motion2_cli/test/test_cli.py b/play_motion2_cli/test/test_cli.py
+index 3ba69c60b8a802744aaa9e4ae7dfec5e1deb9d93..619a094a8545f1bfe5a61f6a7edca0641a92e158 100644
+--- a/play_motion2_cli/test/test_cli.py
++++ b/play_motion2_cli/test/test_cli.py
+@@ -17,30 +17,27 @@ import os
+ import sys
+ import unittest
+ 
+-from fixtures.play_motion_server import EXPECTED_MOTIONS, MOTIONS_INFO
+-
++from fixtures.play_motion_server import EXPECTED_MOTIONS
++from fixtures.play_motion_server import MOTIONS_INFO
+ from launch import LaunchDescription
+ from launch.actions import ExecuteProcess
+ from launch_ros.actions import Node
+-
+ import launch_testing
+ import launch_testing.actions
+ import launch_testing.asserts
+ import launch_testing.markers
+ import launch_testing.tools
+ import launch_testing_ros.tools
+-
+ import pytest
+-
+ from rclpy.utilities import get_available_rmw_implementations
+ 
+-
+ # Skip cli tests on Windows while they exhibit pathological behavior
+ # https://github.com/ros2/build_farmer/issues/248
+ if sys.platform.startswith('win'):
+     pytest.skip(
+         'CLI tests can block for a pathological amount of time on Windows.',
+-        allow_module_level=True)
++        allow_module_level=True,
++    )
+ 
+ 
+ @pytest.mark.rostest
+@@ -51,79 +48,85 @@ def generate_test_description(rmw_implementation):
+     )
+     additional_env = {'RMW_IMPLEMENTATION': rmw_implementation}
+ 
+-    run_zenoh = (rmw_implementation == 'rmw_zenoh_cpp')
++    run_zenoh = rmw_implementation == 'rmw_zenoh_cpp'
+ 
+     on_exit_actions = []
+     if run_zenoh:
+-        on_exit_actions.extend([
+-            ExecuteProcess(
+-                cmd=['ros2', 'run', 'rmw_zenoh_cpp', 'rmw_zenohd'],
+-                name='rmw-zenohd',
+-                additional_env=additional_env,
+-                output='screen',
+-            )
+-        ])
+-
+-    on_exit_actions.extend([
+-        Node(
+-            executable=sys.executable,
+-            arguments=[path_to_play_motion_server_script],
+-            name='play_motion_server',
+-            namespace='play_motion2',
+-            additional_env=additional_env,
+-        ),
+-        launch_testing.actions.ReadyToTest()
+-    ])
+-
+-    return LaunchDescription([
+-        # Always restart daemon to isolate tests.
+-        ExecuteProcess(
+-            cmd=['ros2', 'daemon', 'stop'],
+-            name='daemon-stop',
+-            on_exit=[
++        on_exit_actions.extend(
++            [
+                 ExecuteProcess(
+-                    cmd=['ros2', 'daemon', 'start'],
+-                    name='daemon-start',
+-                    on_exit=on_exit_actions,
++                    cmd=['ros2', 'run', 'rmw_zenoh_cpp', 'rmw_zenohd'],
++                    name='rmw-zenohd',
+                     additional_env=additional_env,
++                    output='screen',
+                 )
+             ]
+-        ),
+-    ])
++        )
++
++    on_exit_actions.extend(
++        [
++            Node(
++                executable=sys.executable,
++                arguments=[path_to_play_motion_server_script],
++                name='play_motion_server',
++                namespace='play_motion2',
++                additional_env=additional_env,
++            ),
++            launch_testing.actions.ReadyToTest(),
++        ]
++    )
++
++    return LaunchDescription(
++        [
++            # Always restart daemon to isolate tests.
++            ExecuteProcess(
++                cmd=['ros2', 'daemon', 'stop'],
++                name='daemon-stop',
++                on_exit=[
++                    ExecuteProcess(
++                        cmd=['ros2', 'daemon', 'start'],
++                        name='daemon-start',
++                        on_exit=on_exit_actions,
++                        additional_env=additional_env,
++                    )
++                ],
++            ),
++        ]
++    )
+ 
+ 
+ class TestROS2PLayMotionCLI(unittest.TestCase):
+-
+     @classmethod
+-    def setUpClass(
+-        cls,
+-        launch_service,
+-        proc_info,
+-        proc_output,
+-        rmw_implementation
+-    ):
++    def setUpClass(cls, launch_service, proc_info, proc_output, rmw_implementation):
+         @contextlib.contextmanager
+         def launch_service_command(self, arguments):
+             service_command_action = ExecuteProcess(
+                 cmd=['ros2', 'play_motion', *arguments],
+-                additional_env={
+-                    'RMW_IMPLEMENTATION': rmw_implementation,
+-                    'PYTHONUNBUFFERED': '1'
+-                },
++                additional_env={'RMW_IMPLEMENTATION': rmw_implementation, 'PYTHONUNBUFFERED': '1'},
+                 name='ros2play_motion-cli',
+-                output='screen'
++                output='screen',
+             )
+             with launch_testing.tools.launch_process(
+-                launch_service, service_command_action, proc_info, proc_output,
++                launch_service,
++                service_command_action,
++                proc_info,
++                proc_output,
+                 output_filter=launch_testing_ros.tools.basic_output_filter(
+                     filtered_prefixes=[
+                         'waiting for service to become available...',
+-                        '/launch_ros'  # cope with launch_ros internal node.
++                        '/launch_ros',  # cope with launch_ros internal node.
+                     ],
+-                    filtered_rmw_implementation=rmw_implementation
+-                )
++                    filtered_rmw_implementation=rmw_implementation,
++                    filtered_patterns=[
++                        # Cyclone reports this benign loopback-only discovery
++                        # choice on stderr; it is not CLI response content.
++                        r'.*selected interface "lo" is not multicast-capable: '
++                        r'disabling multicast',
++                    ],
++                ),
+             ) as service_command:
+                 yield service_command
++
+         cls.launch_service_command = launch_service_command
+ 
+     @launch_testing.markers.retry_on_failure(times=5, delay=1)
+@@ -134,7 +137,7 @@ class TestROS2PLayMotionCLI(unittest.TestCase):
+         assert launch_testing.tools.expect_output(
+             expected_lines=sorted(EXPECTED_MOTIONS.keys()),
+             text=service_command.output,
+-            strict=True
++            strict=True,
+         )
+ 
+     @launch_testing.markers.retry_on_failure(times=5, delay=1)
+@@ -143,13 +146,11 @@ class TestROS2PLayMotionCLI(unittest.TestCase):
+             assert service_command.wait_for_shutdown(timeout=10)
+         assert service_command.exit_code == launch_testing.asserts.EXIT_OK
+         expected_lines = [
+-            f"{motion} [{'Ready' if EXPECTED_MOTIONS[motion] else 'Not ready'}]"
++            f'{motion} [{"Ready" if EXPECTED_MOTIONS[motion] else "Not ready"}]'
+             for motion in sorted(EXPECTED_MOTIONS.keys())
+         ]
+         assert launch_testing.tools.expect_output(
+-            expected_lines=expected_lines,
+-            text=service_command.output.strip(),
+-            strict=True
++            expected_lines=expected_lines, text=service_command.output.strip(), strict=True
+         )
+ 
+     @launch_testing.markers.retry_on_failure(times=5, delay=1)
+@@ -160,13 +161,14 @@ class TestROS2PLayMotionCLI(unittest.TestCase):
+         data = MOTIONS_INFO['nod']
+         assert launch_testing.tools.expect_output(
+             expected_lines=[
+-                f"Key: {data['key']}",
+-                f"Description: {data['description']}",
++                f'Key: {data["key"]}',
++                f'Description: {data["description"]}',
+                 '',
+-                'Joints:'
+-            ] + [f'  {joint}' for joint in data['joints']],
++                'Joints:',
++            ]
++            + [f'  {joint}' for joint in data['joints']],
+             text=service_command.output,
+-            strict=True
++            strict=True,
+         )
+ 
+     @launch_testing.markers.retry_on_failure(times=5, delay=1)
+@@ -177,20 +179,19 @@ class TestROS2PLayMotionCLI(unittest.TestCase):
+         data = MOTIONS_INFO['wave']
+         assert launch_testing.tools.expect_output(
+             expected_lines=[
+-                f"Key: {data['key']}",
+-                f"Name: {data['name']}",
+-                f"Usage: {data['usage']}",
+-                f"Description: {data['description']}",
++                f'Key: {data["key"]}',
++                f'Name: {data["name"]}',
++                f'Usage: {data["usage"]}',
++                f'Description: {data["description"]}',
+                 '',
+                 'Joints and positions:',
+                 'shoulder_joint   0.0000',
+                 'elbow_joint      1.2000 ',
+                 'Times from start:',
+-            ] + [
+-                f'  {t:.2f} s' for t in data['times_from_start']
+-            ],
++            ]
++            + [f'  {t:.2f} s' for t in data['times_from_start']],
+             text=service_command.output,
+-            strict=False
++            strict=False,
+         )
+ 
+     @launch_testing.markers.retry_on_failure(times=5, delay=1)
+@@ -201,18 +202,19 @@ class TestROS2PLayMotionCLI(unittest.TestCase):
+         data = MOTIONS_INFO['nod']
+         assert launch_testing.tools.expect_output(
+             expected_lines=[
+-                f"Key: {data['key']}",
+-                f"Name: {data['name']}",
+-                f"Usage: {data['usage']}",
+-                f"Description: {data['description']}",
++                f'Key: {data["key"]}',
++                f'Name: {data["name"]}',
++                f'Usage: {data["usage"]}',
++                f'Description: {data["description"]}',
+                 '',
+                 'Joints and positions:',
+                 'Joint         pos1     pos2     pos3',
+                 'neck_pitch   0.2000  -0.2000   0.2000',
+                 'Times from start:',
+-            ] + [f'  {t:.2f} s' for t in data['times_from_start']],
++            ]
++            + [f'  {t:.2f} s' for t in data['times_from_start']],
+             text=service_command.output,
+-            strict=False
++            strict=False,
+         )
+ 
+     @launch_testing.markers.retry_on_failure(times=5, delay=1)
+@@ -224,7 +226,7 @@ class TestROS2PLayMotionCLI(unittest.TestCase):
+                 "Unknown motion 'unknown_motion'",
+             ],
+             text=service_command.output,
+-            strict=True
++            strict=True,
+         )
+ 
+     @launch_testing.markers.retry_on_failure(times=5, delay=1)
+@@ -236,7 +238,7 @@ class TestROS2PLayMotionCLI(unittest.TestCase):
+                 "Motion 'unknown_motion' is not ready or does not exist",
+             ],
+             text=service_command.output,
+-            strict=True
++            strict=True,
+         )
+ 
+     @launch_testing.markers.retry_on_failure(times=5, delay=1)
+@@ -248,7 +250,7 @@ class TestROS2PLayMotionCLI(unittest.TestCase):
+                 "Motion 'nod' is not ready or does not exist",
+             ],
+             text=service_command.output,
+-            strict=True
++            strict=True,
+         )
+ 
+     @launch_testing.markers.retry_on_failure(times=5, delay=1)
+@@ -262,7 +264,7 @@ class TestROS2PLayMotionCLI(unittest.TestCase):
+                 'The motion has been executed correctly',
+             ],
+             text=service_command.output,
+-            strict=True
++            strict=True,
+         )
+ 
+     @launch_testing.markers.retry_on_failure(times=5, delay=1)
+@@ -276,5 +278,5 @@ class TestROS2PLayMotionCLI(unittest.TestCase):
+                 'The motion has failed with the error: Simulated failure.',
+             ],
+             text=service_command.output,
+-            strict=False
++            strict=False,
+         )
+diff --git a/play_motion2_cli/test/test_flake8.py b/play_motion2_cli/test/test_flake8.py
+index 27ee1078ff077cc3a0fec75b7d023101a68164d1..d0d8a7049dda0850ad678a690fbbd11fa550e495 100644
+--- a/play_motion2_cli/test/test_flake8.py
++++ b/play_motion2_cli/test/test_flake8.py
+@@ -20,6 +20,4 @@ import pytest
+ @pytest.mark.linter
+ def test_flake8():
+     rc, errors = main_with_errors(argv=[])
+-    assert rc == 0, \
+-        'Found %d code style errors / warnings:\n' % len(errors) + \
+-        '\n'.join(errors)
++    assert rc == 0, 'Found %d code style errors / warnings:\n' % len(errors) + '\n'.join(errors)

@@ -1,0 +1,106 @@
+diff --git a/moveit_ros/move_group/src/move_group.cpp b/moveit_ros/move_group/src/move_group.cpp
+index 2389100756b420935a911a4b4764b196ec0a430f..3108d14bc2f4aa4e258498684706aff7a70e30f2 100644
+--- a/moveit_ros/move_group/src/move_group.cpp
++++ b/moveit_ros/move_group/src/move_group.cpp
+@@ -128,6 +128,11 @@ public:
+     return context_;
+   }
+ 
++  std::shared_ptr<pluginlib::ClassLoader<MoveGroupCapability>> getCapabilityPluginLoader()
++  {
++    return capability_plugin_loader_;
++  }
++
+ private:
+   void configureCapabilities()
+   {
+@@ -219,6 +224,11 @@ int main(int argc, char** argv)
+ {
+   rclcpp::init(argc, argv);
+ 
++  // Callback groups on the root node retain weak action/service control blocks
++  // allocated by capability libraries. Keep those libraries loaded until all
++  // nodes and MoveItCpp monitors have been destroyed.
++  std::shared_ptr<pluginlib::ClassLoader<move_group::MoveGroupCapability>> capability_lifetime;
++
+   rclcpp::NodeOptions opt;
+   opt.allow_undeclared_parameters(true);
+   opt.automatically_declare_parameters_from_overrides(true);
+@@ -314,6 +324,7 @@ int main(int argc, char** argv)
+     rclcpp::executors::MultiThreadedExecutor executor;
+ 
+     move_group::MoveGroupExe mge(moveit_cpp, default_planning_pipeline, debug);
++    capability_lifetime = mge.getCapabilityPluginLoader();
+ 
+     bool monitor_dynamics;
+     if (nh->get_parameter("monitor_dynamics", monitor_dynamics) && monitor_dynamics)
+diff --git a/moveit_ros/planning/package.xml b/moveit_ros/planning/package.xml
+index 051975003323444a27dec641b3db28dee37571c5..9bf8ae678b7615ecfe05b986010d39ee8948e944 100644
+--- a/moveit_ros/planning/package.xml
++++ b/moveit_ros/planning/package.xml
+@@ -52,6 +52,7 @@
+   <test_depend>launch_testing_ament_cmake</test_depend>
+ 
+   <test_depend>moveit_resources_panda_moveit_config</test_depend>
++  <test_depend>moveit_resources_pr2_description</test_depend>
+ 
+   <!-- we moved moveit_cpp from planning_interface in this version,
+        so files conflict. replace provides a migration path for deb/rpm -->
+diff --git a/moveit_ros/planning/planning_request_adapter_plugins/test/test_check_start_state_bounds.cpp b/moveit_ros/planning/planning_request_adapter_plugins/test/test_check_start_state_bounds.cpp
+index 9a65375f2fab55b245893749b89bbc59bf017a01..9f86a09dfe6155be4dcdd799735f6124ea375ef5 100644
+--- a/moveit_ros/planning/planning_request_adapter_plugins/test/test_check_start_state_bounds.cpp
++++ b/moveit_ros/planning/planning_request_adapter_plugins/test/test_check_start_state_bounds.cpp
+@@ -50,8 +50,10 @@ class TestCheckStartStateBounds : public testing::Test
+ protected:
+   void SetUp() override
+   {
+-    rclcpp::init(0, nullptr);
+-    node_ = std::make_shared<rclcpp::Node>("test_check_start_state_bounds_adapter", "");
++    context_ = std::make_shared<rclcpp::Context>();
++    context_->init(0, nullptr);
++    node_ = std::make_shared<rclcpp::Node>("test_check_start_state_bounds_adapter", "",
++                                          rclcpp::NodeOptions().context(context_));
+ 
+     // Load a robot model and place it in a planning scene.
+     urdf::ModelInterfaceSharedPtr urdf_model = moveit::core::loadModelInterface("pr2");
+@@ -67,9 +69,17 @@ protected:
+ 
+   void TearDown() override
+   {
+-    rclcpp::shutdown();
++    context_->shutdown("test complete");
++    // Drop plugin-owned node interfaces before unloading the adapter library
++    // or creating the next test's default ROS context.
++    adapter_.reset();
++    planning_scene_.reset();
++    node_.reset();
++    context_.reset();
++    plugin_loader_.reset();
+   }
+ 
++  std::shared_ptr<rclcpp::Context> context_;
+   std::shared_ptr<rclcpp::Node> node_;
+   std::shared_ptr<planning_scene::PlanningScene> planning_scene_;
+   std::unique_ptr<pluginlib::ClassLoader<planning_interface::PlanningRequestAdapter>> plugin_loader_;
+diff --git a/moveit_ros/planning/trajectory_execution_manager/src/trajectory_execution_manager.cpp b/moveit_ros/planning/trajectory_execution_manager/src/trajectory_execution_manager.cpp
+index 126469542aa546046e6e305b18b56213e91d69a8..6f8cf564e4ea978dc5766f2c5a4012268020724b 100644
+--- a/moveit_ros/planning/trajectory_execution_manager/src/trajectory_execution_manager.cpp
++++ b/moveit_ros/planning/trajectory_execution_manager/src/trajectory_execution_manager.cpp
+@@ -90,6 +90,17 @@ TrajectoryExecutionManager::~TrajectoryExecutionManager()
+     private_executor_->cancel();
+   if (private_executor_thread_.joinable())
+     private_executor_thread_.join();
++
++  // Action-client weak-pointer control blocks can contain code from the
++  // controller plugin. Destroy the plugin's clients and their callback groups
++  // before the loader unloads that library (the default member destruction
++  // order unloads it before controller_mgr_node_).
++  controller_manager_.reset();
++  if (private_executor_ && controller_mgr_node_)
++    private_executor_->remove_node(controller_mgr_node_);
++  private_executor_.reset();
++  controller_mgr_node_.reset();
++  controller_manager_loader_.reset();
+ }
+ 
+ void TrajectoryExecutionManager::initialize()

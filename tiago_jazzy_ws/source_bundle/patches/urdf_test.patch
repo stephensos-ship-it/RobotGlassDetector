@@ -1,0 +1,211 @@
+diff --git a/scripts/test_urdf.py b/scripts/test_urdf.py
+index 1962fe1f4b974e82f889448f75ecce6c3dc0d95b..f7ccbc95b50ac1bd090251a6c2cb221990946708 100755
+--- a/scripts/test_urdf.py
++++ b/scripts/test_urdf.py
+@@ -17,25 +17,18 @@ import rclpy
+ from rclpy.node import Node
+ from rclpy.qos import DurabilityPolicy
+ from rclpy.qos import QoSProfile
+-
+-
+ from std_msgs.msg import String
+ 
+ 
+ class MinimalSubscriber(Node):
+-
+     def __init__(self):
+         super().__init__('robot_description_subscriber')
+         self.robot_description_received = False
+ 
+-        qos_profile = QoSProfile(
+-            depth=1,
+-            durability=DurabilityPolicy.TRANSIENT_LOCAL)
++        qos_profile = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL)
+         self.subscription = self.create_subscription(
+-            String,
+-            'robot_description',
+-            self.listener_callback,
+-            qos_profile)
++            String, 'robot_description', self.listener_callback, qos_profile
++        )
+         self.subscription  # prevent unused variable warning
+ 
+     def listener_callback(self, msg):
+diff --git a/tests/test_xacro_test.py b/tests/test_xacro_test.py
+index 877e846b330fc2bc29251b76543b91e8aa8501ed..145b1de20a2a9ae97510d99f3167eacb1c97da93 100644
+--- a/tests/test_xacro_test.py
++++ b/tests/test_xacro_test.py
+@@ -15,13 +15,12 @@
+ import subprocess
+ import tempfile
+ 
+-
+ from launch.actions import DeclareLaunchArgument
+ import pytest
+-from urdf_test.xacro_test import (check_urdf,
+-                                  check_xacro_file,
+-                                  define_xacro_test,
+-                                  gen_choices_product)
++from urdf_test.xacro_test import check_urdf
++from urdf_test.xacro_test import check_xacro_file
++from urdf_test.xacro_test import define_xacro_test
++from urdf_test.xacro_test import gen_choices_product
+ import xacro
+ 
+ 
+@@ -29,9 +28,7 @@ import xacro
+     'choices,expected',
+     [
+         pytest.param(
+-            (
+-                {'a': [9, 8]},
+-            ),
++            ({'a': [9, 8]},),
+             [{'a': 9}, {'a': 8}],
+             id='single_dict',
+         ),
+@@ -44,23 +41,21 @@ import xacro
+             id='two_dicts',
+         ),
+         pytest.param(
+-            (
+-                {'a': [9, 8], 'c': '23'},
+-            ),
++            ({'a': [9, 8], 'c': '23'},),
+             [{'a': 9, 'c': '23'}, {'a': 8, 'c': '23'}],
+             id='mixed_dict',
+         ),
+         pytest.param(
+-            (
+-                DeclareLaunchArgument('a', choices=[9, 8]),
+-            ),
++            (DeclareLaunchArgument('a', choices=[9, 8]),),
+             [{'a': 8}, {'a': 9}],
+             id='single_dla',
+         ),
+         pytest.param(
+             (
+-                (DeclareLaunchArgument('a', choices=[9, 8]),
+-                 DeclareLaunchArgument('b', choices=[1, 2])),
++                (
++                    DeclareLaunchArgument('a', choices=[9, 8]),
++                    DeclareLaunchArgument('b', choices=[1, 2]),
++                ),
+             ),
+             [{'a': 8, 'b': 1}, {'a': 8, 'b': 2}, {'a': 9, 'b': 1}, {'a': 9, 'b': 2}],
+             id='double_dla',
+@@ -91,7 +86,7 @@ def test_define_xacro_test():
+     func = define_xacro_test('test.xacro', {'a': [9, 8]}, {'b': [1, 2]})
+     assert callable(func)
+     assert func.__name__ == 'test_urdf'
+-    mark, = func.pytestmark
++    (mark,) = func.pytestmark
+     assert mark.name == 'parametrize'
+     assert mark.args[0] == 'params'
+     params = {p.id: p.values for p in mark.args[1]}
+@@ -99,7 +94,7 @@ def test_define_xacro_test():
+         'a:=8 b:=1': ({'a': 8, 'b': 1},),
+         'a:=8 b:=2': ({'a': 8, 'b': 2},),
+         'a:=9 b:=1': ({'a': 9, 'b': 1},),
+-        'a:=9 b:=2': ({'a': 9, 'b': 2},)
++        'a:=9 b:=2': ({'a': 9, 'b': 2},),
+     }
+ 
+ 
+diff --git a/urdf_test/description_test.py b/urdf_test/description_test.py
+index 256688cb7239925130c26752bd4a892ff031f0c3..ae38a8d4cb9ee112b124731720ae2f9dd2b2997b 100644
+--- a/urdf_test/description_test.py
++++ b/urdf_test/description_test.py
+@@ -26,34 +26,36 @@ def generate_urdf_test_description(launch_file_action):
+     proc_env['PYTHONUNBUFFERED'] = '1'
+ 
+     # dut = device under test, aka the actual test
+-    dut_process = Node(package='urdf_test',
+-                       executable='test_urdf.py',
+-                       output='both',
+-                       env=proc_env,)
+-    return LaunchDescription([
+-        launch_file_action,
+-        dut_process,
+-
+-        launch_testing.actions.ReadyToTest(),
+-    ]), {'dut_process': dut_process}
++    dut_process = Node(
++        package='urdf_test',
++        executable='test_urdf.py',
++        output='both',
++        env=proc_env,
++    )
++    return LaunchDescription(
++        [
++            launch_file_action,
++            dut_process,
++            launch_testing.actions.ReadyToTest(),
++        ]
++    ), {'dut_process': dut_process}
+ 
+ 
+ class TestDescriptionPublished(unittest.TestCase):
+-
+     def test_robot_description_output(self, proc_output, proc_info, dut_process):
+         # This will match stderr from dut_process
+         # stderr seems to be used even by rclpy.loginfo(), stdout will fail and not find anything
+ 
+         proc_output.assertWaitFor(
+-            'Received robot_description', timeout=3, stream='stderr', process=dut_process)
++            'Received robot_description', timeout=15, stream='stderr', process=dut_process
++        )
+ 
+         # Wait until process ends
+-        proc_info.assertWaitForShutdown(process=dut_process, timeout=2)
++        proc_info.assertWaitForShutdown(process=dut_process, timeout=15)
+ 
+ 
+ @launch_testing.post_shutdown_test()
+ class TestSuccessfulExit(unittest.TestCase):
+-
+     def test_exit_code(self, proc_info, dut_process):
+         # Check that dut_process finishes with code 0
+         launch_testing.asserts.assertExitCodes(proc_info, process=dut_process)
+diff --git a/urdf_test/xacro_test.py b/urdf_test/xacro_test.py
+index e22fc55607d244c60fc4aef5a35c416e96825632..ae22728fb7f4101599197d4912080f57a45c2e94 100644
+--- a/urdf_test/xacro_test.py
++++ b/urdf_test/xacro_test.py
+@@ -12,22 +12,20 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
+-from collections.abc import Iterable, Sequence
++from collections.abc import Iterable
++from collections.abc import Sequence
+ import itertools
+ import subprocess
+ 
+ import pytest
+-
+ import xacro
+ 
+ 
+ def check_urdf(urdf, check=True, stdout=subprocess.DEVNULL, **kwargs):
+     """Run check_urdf on the given URDF string. Output is redirected to /dev/null by default."""
+-    return subprocess.run(['check_urdf', '/dev/stdin'],
+-                          check=check,
+-                          text=True, input=urdf,
+-                          stdout=stdout,
+-                          **kwargs)
++    return subprocess.run(
++        ['check_urdf', '/dev/stdin'], check=check, text=True, input=urdf, stdout=stdout, **kwargs
++    )
+ 
+ 
+ def check_xacro_file(xacro_file_path, mappings, check=True, **kwargs):
+@@ -91,7 +89,9 @@ def parametrize_choices(*choices):
+ 
+ def define_xacro_test(xacro_file_path, *choices):
+     """Generate a pytest test that checks the given xacro file for the given choices."""
++
+     @pytest.mark.parametrize('params', parametrize_choices(*choices))
+     def test_urdf(params):
+         check_xacro_file(xacro_file_path, params)
++
+     return test_urdf

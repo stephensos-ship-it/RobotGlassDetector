@@ -1,0 +1,85 @@
+repositories:
+  br2_gazebo_worlds:
+    type: git
+    url: https://github.com/Tiago-Harmonic/br2_gazebo_worlds.git
+    version: e5e25ece539e0840c65b547ed2c0d94b9bc50cac
+  launch_pal:
+    type: git
+    url: https://github.com/Tiago-Harmonic/launch_pal.git
+    version: a9113d96f6d5691f6d24930f184f9be085b582d7
+  moveit2:
+    type: git
+    url: https://github.com/moveit/moveit2.git
+    version: 1ade0e9dcf50dbbbc3a984b995c786cf12736235
+  pal_gazebo_worlds:
+    type: git
+    url: https://github.com/pal-robotics/pal_gazebo_worlds.git
+    version: 74f953218b3c414cda2f07a99eab2ea9fcbbada0
+  pal_gripper:
+    type: git
+    url: https://github.com/Tiago-Harmonic/pal_gripper.git
+    version: f696b11183cec43fe050778c26fd5043d831eb85
+  pal_hey5:
+    type: git
+    url: https://github.com/Tiago-Harmonic/pal_hey5.git
+    version: 37e8c5428ba642ed0e686cdd64a8b3929fe3fdd5
+  pal_maps:
+    type: git
+    url: https://github.com/Tiago-Harmonic/pal_maps.git
+    version: 22ee0bf384a218420e6e2a571b7d0d7ef6cf65fc
+  pal_navigation_cfg_public:
+    type: git
+    url: https://github.com/pal-robotics/pal_navigation_cfg_public.git
+    version: 50b2b2f923ffbb9134027412bf3d0a00fcddc5bd
+  pal_robotiq_gripper:
+    type: git
+    url: https://github.com/Tiago-Harmonic/pal_robotiq_gripper.git
+    version: 33f6b03a6ae00ebf358ca6dc9806f1062de204bc
+  pal_urdf_utils:
+    type: git
+    url: https://github.com/Tiago-Harmonic/pal_urdf_utils.git
+    version: a8f3bec9b8371a898225f2cb12f53e599e757168
+  play_motion2:
+    type: git
+    url: https://github.com/pal-robotics/play_motion2.git
+    version: fbd9bbafe44acd662d3f9018b5ffb848f0f66cdd
+  pmb2_navigation:
+    type: git
+    url: https://github.com/Tiago-Harmonic/pmb2_navigation.git
+    version: 4e15ad3bcc6d0df4df752ee8837bfec949c25e46
+  pmb2_robot:
+    type: git
+    url: https://github.com/Tiago-Harmonic/pmb2_robot.git
+    version: 984ac253d667ef0757348eaefcbb4404d599e575
+  ros_gz:
+    type: git
+    url: https://github.com/gazebosim/ros_gz.git
+    version: 5912bfe7976a79d2cc9f373b2d40a8a3a3e33da2
+  tiago_harmonic:
+    type: git
+    url: https://github.com/Tiago-Harmonic/tiago_harmonic.git
+    version: 835892d534c3f5bb7996ae7a50a5a1f06fc99f7e
+  tiago_moveit_config:
+    type: git
+    url: https://github.com/Tiago-Harmonic/tiago_moveit_config.git
+    version: 2ff8816bf839bef73a1e6d057da4300b58351da0
+  tiago_navigation:
+    type: git
+    url: https://github.com/Tiago-Harmonic/tiago_navigation
+    version: 280353f804da563ab44435eed703461675741583
+  tiago_omni_base:
+    type: git
+    url: https://github.com/Tiago-Harmonic/omni_base_robot.git
+    version: 5a822f81fe06bd400c82533f728984c35ac163e2
+  tiago_robot:
+    type: git
+    url: https://github.com/Tiago-Harmonic/tiago_robot.git
+    version: bc2ac55a0be2c49ccca6e09f6ff533902c9fb8e2
+  tiago_simulation:
+    type: git
+    url: https://github.com/Tiago-Harmonic/tiago_simulation.git
+    version: d35cb5a4d08daeb64d529569db0a645a9ceb1348
+  urdf_test:
+    type: git
+    url: https://github.com/pal-robotics/urdf_test.git
+    version: 3a827003480c3d67d4a21b364e2738cc88248bcd

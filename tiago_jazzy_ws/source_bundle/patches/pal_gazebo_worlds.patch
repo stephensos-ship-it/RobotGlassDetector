@@ -1,0 +1,338 @@
+diff --git a/launch/pal_gazebo.launch.py b/launch/pal_gazebo.launch.py
+index a749d4a2c6ef847fbc6ae1ecaa602e8d48e2736e..d178785ef75cb773b15c03a02896d0a8c1b8e6bf 100644
+--- a/launch/pal_gazebo.launch.py
++++ b/launch/pal_gazebo.launch.py
+@@ -12,187 +12,150 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
++import atexit
++import copy
+ import os
+-from os import environ, pathsep
+-import pathlib
+-
+-from ament_index_python.packages import get_package_prefix, get_package_share_directory
++from pathlib import Path
++import re
++import tempfile
++import xml.etree.ElementTree as ET
+ 
++from ament_index_python.packages import get_package_share_directory
+ from launch import LaunchDescription
+-from launch.actions import (
+-    DeclareLaunchArgument,
+-    ExecuteProcess,
+-    OpaqueFunction,
+-    SetEnvironmentVariable,
+-)
++from launch.actions import DeclareLaunchArgument
++from launch.actions import ExecuteProcess
++from launch.actions import OpaqueFunction
++from launch.actions import SetEnvironmentVariable
+ from launch.conditions import IfCondition
+ from launch.substitutions import LaunchConfiguration
+-from launch_pal.robot_arguments import CommonArgs
+-
+-
+-def get_pkg_path():
+-    return pathlib.Path(get_package_share_directory('pal_gazebo_worlds'))
+-
+-
+-def get_private_pkg_path():
+-    priv_pkg_path = pathlib.Path('')
+-    try:
+-        priv_pkg_path = pathlib.Path(get_package_share_directory('pal_gazebo_worlds_private'))
+-    except Exception:
+-        print('Private gazebo world package not found.')
+-    return priv_pkg_path
+-
+-
+-def get_world_name(context):
+-    return LaunchConfiguration('world_name').perform(context)
+-
+-
+-def find_world(world_name, priv_pkg_path, pkg_path, default_extension):
+-    world = pathlib.Path(world_name).expanduser()
+-    world_file_name = world.name if world.suffix else f'{world.name}{default_extension}'
+ 
+-    if world.suffix:
+-        world_path = world
+-    else:
+-        world_path = world.with_name(world_file_name)
+ 
+-    if world_path.is_file():
+-        return str(world_path.resolve())
+-
+-    pkg_world_path = pkg_path / 'worlds' / world_file_name
+-    priv_pkg_world_path = priv_pkg_path / 'worlds' / world_file_name
+-    if priv_pkg_world_path.is_file():
+-        world = str(priv_pkg_world_path)
+-    elif pkg_world_path.is_file():
+-        world = str(pkg_world_path)
+-    else:
+-        print('World file not found.')
+-        world = str('')
+-    return world
+-
+-
+-def start_gazebo_classic(context, *args, **kwargs):
+-    pkg_path = get_pkg_path()
+-    priv_pkg_path = get_private_pkg_path()
+-    world_name = get_world_name(context)
+-    world = find_world(world_name, priv_pkg_path, pkg_path, '.world')
+-    gazebo_clock_rate = LaunchConfiguration('clock_rate').perform(context)
+-
+-    # Command to start the gazebo server.
+-    gazebo_server_cmd_line = [
+-        'gzserver', '-s', 'libgazebo_ros_init.so',
+-        '-s', 'libgazebo_ros_factory.so', world,
+-        '--ros-args', '--param', f'publish_rate:={gazebo_clock_rate}']
+-    # Start the server under the gdb framework.
+-    debug = LaunchConfiguration('debug').perform(context)
+-    if debug == 'True':
+-        gazebo_server_cmd_line = (
+-            ['xterm', '-e', 'gdb', '-ex', 'run', '--args'] +
+-            gazebo_server_cmd_line
+-        )
+-
+-    # Start the gazebo classic server.
+-    start_gazebo_classic_server_cmd = ExecuteProcess(
+-        cmd=gazebo_server_cmd_line, output='screen')
+-
+-    # Start the gazebo classic Gui.
+-    start_gazebo_classic_client_cmd = ExecuteProcess(
+-        cmd=['gzclient'], output='screen',
+-        condition=IfCondition(LaunchConfiguration('gzclient'))
++def start_gazebo(context):
++    share = Path(get_package_share_directory('pal_gazebo_worlds'))
++    name = LaunchConfiguration('world_name').perform(context)
++    aliases = {'empty_world': 'empty'}
++    candidate = Path(name)
++    if not candidate.is_file():
++        candidate = share / 'worlds' / (aliases.get(name, name) + '.sdf')
++    if not candidate.is_file():
++        candidate = share / 'worlds' / (aliases.get(name, name) + '.world')
++    if not candidate.is_file():
++        extra = Path(get_package_share_directory('br2_gazebo_worlds'))
++        candidate = extra / 'worlds' / (name + '.world')
++    if not candidate.is_file():
++        raise FileNotFoundError(f'Harmonic world does not exist: {candidate}')
++    # F/T and contact sensors are world systems, shared by all spawned robots.
++    # Install them for supplied and external SDF worlds without editing assets.
++    # Some upstream comments contain CLI --options, forbidden inside XML
++    # comments. SDFormat accepts them; strip comments before strict parsing.
++    tree = ET.ElementTree(
++        ET.fromstring(re.sub(r'<!--.*?-->', '', candidate.read_text(), flags=re.DOTALL))
+     )
+-
+-    return [start_gazebo_classic_server_cmd, start_gazebo_classic_client_cmd]
+-
+-
+-def start_gz(context, *args, **kwargs):
+-    pkg_path = get_pkg_path()
+-    priv_pkg_path = get_private_pkg_path()
+-    world_name = get_world_name(context)
+-    world = find_world(world_name, priv_pkg_path, pkg_path, '.sdf')
+-
+-    # Command to start the gazebo server.
+-    # humble uses Gazebo Fortress ('ign gazebo'), later distros 'gz sim'
+-    gz_cmd = ['ign', 'gazebo'] if environ.get('ROS_DISTRO') == 'humble' else ['gz', 'sim']
+-    gazebo_server_cmd_line = gz_cmd + ['-r', '-v', '4', '-s', world]
+-    # Start the server under the gdb framework.
+-    debug = LaunchConfiguration('debug').perform(context)
+-    if debug == 'True':
+-        gazebo_server_cmd_line = (
+-            ['xterm', '-e'] +
+-            gazebo_server_cmd_line
++    world = tree.getroot().find('world')
++    if world is None:
++        raise ValueError(f'SDF has no world: {candidate}')
++    # Classic's world state and collision services are replaced by Harmonic's
++    # UserCommands and Contact systems. Never load Classic shared libraries.
++    replaced = {'libgazebo_ros_state.so', 'libpal_gazebo_collisions.so'}
++    for parent in tree.iter():
++        for plugin in list(parent.findall('plugin')):
++            library = plugin.get('filename', '')
++            if library in replaced:
++                parent.remove(plugin)
++            elif library.startswith(('libgazebo_', 'libpal_gazebo_', 'librandom_actor')):
++                raise ValueError(
++                    f'{candidate.name} contains an embedded Classic-only system: {library}'
++                )
++    # Resolve Classic's two standard world includes locally, without Fuel or
++    # a Gazebo Classic model database dependency.
++    template = ET.fromstring(
++        re.sub(r'<!--.*?-->', '', (share / 'worlds/empty.sdf').read_text(), flags=re.DOTALL)
++    )
++    for parent in tree.iter():
++        for include in list(parent.findall('include')):
++            uri = include.findtext('uri', '')
++            replacement = None
++            if uri == 'model://sun':
++                replacement = template.find('.//light')
++            elif uri == 'model://ground_plane':
++                replacement = template.find('.//model')
++            if replacement is not None:
++                replacement = copy.deepcopy(replacement)
++                for tag in ['pose', 'name']:
++                    value = include.findtext(tag)
++                    if value is not None:
++                        if tag == 'name':
++                            replacement.set('name', value)
++                        else:
++                            element = replacement.find(tag)
++                            if element is None:
++                                element = ET.SubElement(replacement, tag)
++                            element.text = value
++                parent.remove(include)
++                parent.append(replacement)
++    names = {plugin.get('name') for plugin in world.findall('plugin')}
++    for library, system in [
++        ('physics', 'Physics'),
++        ('user-commands', 'UserCommands'),
++        ('scene-broadcaster', 'SceneBroadcaster'),
++        ('sensors', 'Sensors'),
++        ('imu', 'Imu'),
++        ('forcetorque', 'ForceTorque'),
++        ('contact', 'Contact'),
++    ]:
++        name = 'gz::sim::systems::' + system
++        if name not in names:
++            plugin = ET.SubElement(
++                world, 'plugin', filename='gz-sim-' + library + '-system', name=name
++            )
++            if system == 'Sensors':
++                ET.SubElement(plugin, 'render_engine').text = 'ogre2'
++    with tempfile.NamedTemporaryFile(suffix='.sdf', delete=False) as stream:
++        tree.write(stream, encoding='utf-8', xml_declaration=True)
++        runtime_world = Path(stream.name)
++    atexit.register(runtime_world.unlink, missing_ok=True)
++    resources = os.pathsep.join(
++        filter(
++            None,
++            [
++                str(share / 'models'),
++                str(share),
++                str(candidate.parent),
++                *[
++                    str(Path(prefix) / 'share')
++                    for prefix in context.environment.get('AMENT_PREFIX_PATH', '').split(
++                        os.pathsep
++                    )
++                    if prefix
++                ],
++                context.environment.get('GZ_SIM_RESOURCE_PATH', ''),
++            ],
+         )
+-    start_gazebo_server_cmd = ExecuteProcess(
+-        cmd=gazebo_server_cmd_line, output='screen')
+-
+-    start_gazebo_client_cmd = ExecuteProcess(
+-        cmd=gz_cmd + ['-v', '4', '-g'], output='screen',
+-        condition=IfCondition(LaunchConfiguration('gzclient'))
+     )
+-
+-    return [start_gazebo_server_cmd, start_gazebo_client_cmd]
+-
+-
+-def start_gazebo(context, *args, **kwargs):
+-    actions = []
+-
+-    gazebo_version = LaunchConfiguration('gazebo_version').perform(context)
+-    # Attempt to find pal_gazebo_worlds_private, use pal_gazebo_worlds otherwise
+-    try:
+-        priv_pkg_path = get_package_share_directory(
+-            'pal_gazebo_worlds_private')
+-        model_path = os.path.join(priv_pkg_path, 'models') + pathsep
+-        resource_path = priv_pkg_path + pathsep
+-    except Exception:
+-        model_path = ''
+-        resource_path = ''
+-
+-    # Add pal_gazebo_worlds path
+-    pkg_path = get_package_share_directory('pal_gazebo_worlds')
+-    model_path += os.path.join(pkg_path, 'models')
+-    resource_path += pkg_path
+-
+-    if gazebo_version == 'gazebo':
+-        system_plugin_path = os.path.join(get_package_prefix('gz_ros2_control'), 'lib')
+-        if 'GZ_SIM_SYSTEM_PLUGIN_PATH' in environ:
+-            system_plugin_path += pathsep + environ['GZ_SIM_SYSTEM_PLUGIN_PATH']
+-
+-        actions.append(SetEnvironmentVariable('GZ_SIM_SYSTEM_PLUGIN_PATH', system_plugin_path))
+-        actions.append(OpaqueFunction(function=start_gz))
+-    elif gazebo_version == 'classic':
+-        actions.append(OpaqueFunction(function=start_gazebo_classic))
+-    else:
+-        actions.append(ExecuteProcess(cmd=[
+-            'echo', 'The given version of gazebo [{}] is wrong. '.format(gazebo_version) +
+-            "Should be 'classic' or 'gazebo'"
+-        ], output='screen'))
+-
+-    return actions
++    return [
++        SetEnvironmentVariable('GZ_SIM_RESOURCE_PATH', resources),
++        ExecuteProcess(
++            cmd=['gz', 'sim', '-r', '-s', str(runtime_world)],
++            name='gazebo',
++            output='screen',
++            shell=False,
++            sigterm_timeout='20',
++        ),
++        ExecuteProcess(
++            cmd=['gz', 'sim', '-g'],
++            name='gazebo_gui',
++            output='screen',
++            shell=False,
++            condition=IfCondition(LaunchConfiguration('gzclient')),
++        ),
++    ]
+ 
+ 
+ def generate_launch_description():
+-    declare_world_name = DeclareLaunchArgument(
+-        'world_name', default_value='',
+-        description="Specify world name, we'll convert to full path",
+-    )
+-    declare_debug = DeclareLaunchArgument(
+-        'debug', default_value='False',
+-        choices=['True', 'False'],
+-        description='If debug start the gazebo world into a gdb session in an xterm terminal',
+-    )
+-    declare_clock_rate = DeclareLaunchArgument(
+-        'clock_rate', default_value='200.0',
+-        description='The rate at which the gazebo clock needs to be published!'
++    return LaunchDescription(
++        [
++            DeclareLaunchArgument('world_name', default_value='pal_office'),
++            DeclareLaunchArgument('gzclient', default_value='True', choices=['True', 'False']),
++            OpaqueFunction(function=start_gazebo),
++        ]
+     )
+-
+-    # Create the launch description and populate
+-    ld = LaunchDescription()
+-
+-    ld.add_action(declare_debug)
+-    ld.add_action(declare_world_name)
+-    ld.add_action(declare_clock_rate)
+-    ld.add_action(CommonArgs.gzclient)
+-    ld.add_action(CommonArgs.gazebo_version)
+-
+-    ld.add_action(OpaqueFunction(function=start_gazebo))
+-
+-    return ld
+diff --git a/package.xml b/package.xml
+index 7aa50a45b06d3ff217b4acbeb57cbf6ba96cb798..74026f2bce91ef9fd4eaf13b9ad32deadeff0708 100644
+--- a/package.xml
++++ b/package.xml
+@@ -14,7 +14,7 @@
+   <build_depend>ament_cmake_auto</build_depend>
+ 
+   <exec_depend>launch_pal</exec_depend>
+-  <exec_depend condition="$PAL_DISTRO >= alum">pal_gazebo_worlds_private</exec_depend>
++  <exec_depend>ros_gz_sim</exec_depend>
+ 
+   <test_depend>ament_lint_auto</test_depend>
+   <test_depend>ament_lint_common</test_depend>

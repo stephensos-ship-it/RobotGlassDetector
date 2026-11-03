@@ -1,0 +1,1398 @@
+diff --git a/pal_gripper_controller_configuration/config/current_limit_controllers.yaml b/pal_gripper_controller_configuration/config/current_limit_controllers.yaml
+index 71f5df4a72d6e75cee7fa0bc7338c7c81e4ccd43..fb8ba3c4cfe1a0879cc9f008a1ca4446595386e6 100644
+--- a/pal_gripper_controller_configuration/config/current_limit_controllers.yaml
++++ b/pal_gripper_controller_configuration/config/current_limit_controllers.yaml
+@@ -1,5 +1,5 @@
+-gripper_current_limit_controller:
++/**/gripper_current_limit_controller:
+   type: "pal_ros_controllers/CurrentLimitController"
+   actuators:
+     - gripper_left_finger_motor
+-    - gripper_right_finger_motor
+\ No newline at end of file
++    - gripper_right_finger_motor
+diff --git a/pal_gripper_controller_configuration/config/current_limit_controllers_left.yaml b/pal_gripper_controller_configuration/config/current_limit_controllers_left.yaml
+index 93b881190c5e3f09baf3355b5ca76bc0ef17e80f..942d52f3bd8626b3f68cf11f0d9806f9ece312d6 100644
+--- a/pal_gripper_controller_configuration/config/current_limit_controllers_left.yaml
++++ b/pal_gripper_controller_configuration/config/current_limit_controllers_left.yaml
+@@ -1,4 +1,4 @@
+-gripper_left_current_limit_controller:
++/**/gripper_left_current_limit_controller:
+   type: "pal_ros_controllers/CurrentLimitController"
+   actuators:
+     - gripper_left_left_finger_motor
+diff --git a/pal_gripper_controller_configuration/config/current_limit_controllers_right.yaml b/pal_gripper_controller_configuration/config/current_limit_controllers_right.yaml
+index 9e6c69bafb68049f8bab995a04b8a8b8a82e23c2..f414b8f1425f44e567e45f1db6fe011e456f768f 100644
+--- a/pal_gripper_controller_configuration/config/current_limit_controllers_right.yaml
++++ b/pal_gripper_controller_configuration/config/current_limit_controllers_right.yaml
+@@ -1,4 +1,4 @@
+-gripper_right_current_limit_controller:
++/**/gripper_right_current_limit_controller:
+   type: "pal_ros_controllers/CurrentLimitController"
+   actuators:
+     - gripper_right_left_finger_motor
+diff --git a/pal_gripper_controller_configuration/config/gazebo_controller_manager_cfg.yaml b/pal_gripper_controller_configuration/config/gazebo_controller_manager_cfg.yaml
+index 46c722f5a7364c8d669140fb1e683070f0ca7d61..5684c565c73cb4a08c0def6925129b2ab4231667 100644
+--- a/pal_gripper_controller_configuration/config/gazebo_controller_manager_cfg.yaml
++++ b/pal_gripper_controller_configuration/config/gazebo_controller_manager_cfg.yaml
+@@ -1,4 +1,4 @@
+-controller_manager:
++/**/controller_manager:
+   ros__parameters:
+     update_rate: 100 # Hz
+-    use_sim_time: True
+\ No newline at end of file
++    use_sim_time: True
+diff --git a/pal_gripper_controller_configuration/config/gripper_controller.yaml b/pal_gripper_controller_configuration/config/gripper_controller.yaml
+index 45941b9799f37cb835eafd9eda61849314fd3478..eeb9fe3f9d037d87257a75d4b966b80adeb71019 100644
+--- a/pal_gripper_controller_configuration/config/gripper_controller.yaml
++++ b/pal_gripper_controller_configuration/config/gripper_controller.yaml
+@@ -1,4 +1,4 @@
+-${EE_SIDE_PREFIX}_controller:
++/**/${EE_SIDE_PREFIX}_controller:
+   ros__parameters:
+     type: joint_trajectory_controller/JointTrajectoryController
+     joints:
+diff --git a/pal_gripper_controller_configuration/config/joint_state_broadcaster.yaml b/pal_gripper_controller_configuration/config/joint_state_broadcaster.yaml
+index a138a0efe86f0baf179393a7cbcffd3106b19c4e..01788e96e40868e48e6992ad9951ae5607b7f4a4 100644
+--- a/pal_gripper_controller_configuration/config/joint_state_broadcaster.yaml
++++ b/pal_gripper_controller_configuration/config/joint_state_broadcaster.yaml
+@@ -1,3 +1,4 @@
+-joint_state_broadcaster:
++/**/joint_state_broadcaster:
+   ros__parameters:
++    type: joint_state_broadcaster/JointStateBroadcaster
+     publish_rate: 50.0
+diff --git a/pal_gripper_controller_configuration/config/joint_trajectory_controllers.yaml b/pal_gripper_controller_configuration/config/joint_trajectory_controllers.yaml
+index dff30821d3070f8eda01de6d12bff39cc5b6bb35..987339f36521b1a5bed4b53b111c08643dcfa7a8 100644
+--- a/pal_gripper_controller_configuration/config/joint_trajectory_controllers.yaml
++++ b/pal_gripper_controller_configuration/config/joint_trajectory_controllers.yaml
+@@ -1,4 +1,4 @@
+-gripper_controller:
++/**/gripper_controller:
+   type: "position_controllers/JointTrajectoryController"
+   joints:
+     - gripper_right_finger_joint
+diff --git a/pal_gripper_controller_configuration/config/pids.yaml b/pal_gripper_controller_configuration/config/pids.yaml
+index e3b727e3faf6a8f2765fbfb6f0b37353d238163b..f5581a0aa3fa3055f1ed0b9ec3bde622fd81adf3 100644
+--- a/pal_gripper_controller_configuration/config/pids.yaml
++++ b/pal_gripper_controller_configuration/config/pids.yaml
+@@ -1,3 +1,3 @@
+-gains:
++/**/gains:
+   gripper_left_finger_joint: &gripper_finger_gains {p: 2000,  d: 0,  i: 0, p_gain: 2000}
+   gripper_right_finger_joint: *gripper_finger_gains
+diff --git a/pal_gripper_controller_configuration/launch/joint_state_broadcaster.launch.py b/pal_gripper_controller_configuration/launch/joint_state_broadcaster.launch.py
+index 3462757f40b724c685c33716e061e0f36bd73dd7..903515e3ac11ad2d89c2508dc62f4abe583c4bdc 100644
+--- a/pal_gripper_controller_configuration/launch/joint_state_broadcaster.launch.py
++++ b/pal_gripper_controller_configuration/launch/joint_state_broadcaster.launch.py
+@@ -15,7 +15,6 @@
+ import os
+ 
+ from ament_index_python.packages import get_package_share_directory
+-
+ from controller_manager.launch_utils import generate_load_controller_launch_description
+ 
+ 
+@@ -24,4 +23,7 @@ def generate_launch_description():
+         controller_name='joint_state_broadcaster',
+         controller_params_file=os.path.join(
+             get_package_share_directory('pal_gripper_controller_configuration'),
+-            'config', 'joint_state_broadcaster.yaml'))
++            'config',
++            'joint_state_broadcaster.yaml',
++        ),
++    )
+diff --git a/pal_gripper_controller_configuration/launch/pal_gripper_controller.launch.py b/pal_gripper_controller_configuration/launch/pal_gripper_controller.launch.py
+index 26dc15f0fcde0af97d60a3762c14380b4920fd39..4af52b4b1e89b441cec5fb286137155602c117a6 100644
+--- a/pal_gripper_controller_configuration/launch/pal_gripper_controller.launch.py
++++ b/pal_gripper_controller_configuration/launch/pal_gripper_controller.launch.py
+@@ -12,26 +12,30 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
++from dataclasses import dataclass
+ import os
+ 
+ from ament_index_python.packages import get_package_share_directory
+ from controller_manager.launch_utils import generate_load_controller_launch_description
+-from launch_pal.param_utils import parse_parametric_yaml
+-from launch_pal.arg_utils import LaunchArgumentsBase, read_launch_argument
+-from launch.actions import DeclareLaunchArgument, SetLaunchConfiguration, OpaqueFunction
++from launch import LaunchContext
++from launch import LaunchDescription
++from launch.actions import DeclareLaunchArgument
++from launch.actions import OpaqueFunction
++from launch.actions import SetLaunchConfiguration
+ from launch.substitutions import LaunchConfiguration
+-from launch import LaunchDescription, LaunchContext
+-from dataclasses import dataclass
++from launch_pal.arg_utils import LaunchArgumentsBase
++from launch_pal.arg_utils import read_launch_argument
++from launch_pal.param_utils import parse_parametric_yaml
+ 
+ 
+ @dataclass(frozen=True)
+ class LaunchArguments(LaunchArgumentsBase):
+-
+     side: DeclareLaunchArgument = DeclareLaunchArgument(
+         name='side',
+         default_value='',
+         choices=['', 'left', 'right'],
+-        description='side of the end effector')
++        description='side of the end effector',
++    )
+ 
+ 
+ def declare_actions(launch_description: LaunchDescription, launch_args: LaunchArguments):
+@@ -39,8 +43,9 @@ def declare_actions(launch_description: LaunchDescription, launch_args: LaunchAr
+     launch_description.add_action(OpaqueFunction(function=setup_controller_configuration))
+ 
+     launch_controller = generate_load_controller_launch_description(
+-        controller_name=LaunchConfiguration("controller_name"),
+-        controller_params_file=LaunchConfiguration("controller_config"))
++        controller_name=LaunchConfiguration('controller_name'),
++        controller_params_file=LaunchConfiguration('controller_config'),
++    )
+ 
+     launch_description.add_action(launch_controller)
+ 
+@@ -50,20 +55,24 @@ def declare_actions(launch_description: LaunchDescription, launch_args: LaunchAr
+ def setup_controller_configuration(context: LaunchContext):
+ 
+     side = read_launch_argument('side', context)
+-    ee_prefix = "gripper"
++    ee_prefix = 'gripper'
+     if side:
+-        ee_prefix = f"gripper_{side}"
++        ee_prefix = f'gripper_{side}'
+ 
+-    controller_name = f"{ee_prefix}_controller"
+-    remappings = {"EE_SIDE_PREFIX": ee_prefix}
++    controller_name = f'{ee_prefix}_controller'
++    remappings = {'EE_SIDE_PREFIX': ee_prefix}
+     param_file = os.path.join(
+         get_package_share_directory('pal_gripper_controller_configuration'),
+-        'config', 'gripper_controller.yaml')
++        'config',
++        'gripper_controller.yaml',
++    )
+ 
+     parsed_yaml = parse_parametric_yaml(source_files=[param_file], param_rewrites=remappings)
+ 
+-    return [SetLaunchConfiguration('controller_name', controller_name),
+-            SetLaunchConfiguration('controller_config', parsed_yaml)]
++    return [
++        SetLaunchConfiguration('controller_name', controller_name),
++        SetLaunchConfiguration('controller_config', parsed_yaml),
++    ]
+ 
+ 
+ def generate_launch_description():
+diff --git a/pal_gripper_controller_configuration/scripts/home_gripper.py b/pal_gripper_controller_configuration/scripts/home_gripper.py
+index 529c98a0aa912da98fa9ffeb2b4e793db9ac4a85..67872c82bf6622178e7d04bb165c411af7649b2c 100755
+--- a/pal_gripper_controller_configuration/scripts/home_gripper.py
++++ b/pal_gripper_controller_configuration/scripts/home_gripper.py
+@@ -15,10 +15,12 @@
+ # limitations under the License.
+ 
+ import actionlib
+-from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
++from control_msgs.msg import FollowJointTrajectoryAction
++from control_msgs.msg import FollowJointTrajectoryGoal
+ import rospy
+ from sensor_msgs.msg import JointState
+-from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
++from trajectory_msgs.msg import JointTrajectory
++from trajectory_msgs.msg import JointTrajectoryPoint
+ 
+ closed = [0.045, 0.045]
+ 
+@@ -29,10 +31,13 @@ if __name__ == '__main__':
+         rospy.logerr('No suffix found in param: ~suffix')
+         exit(1)
+     joint_names = [
+-        'gripper' + suffix + '_left_finger_joint', 'gripper' + suffix + '_right_finger_joint']
++        'gripper' + suffix + '_left_finger_joint',
++        'gripper' + suffix + '_right_finger_joint',
++    ]
+     rospy.loginfo('Waiting for gripper' + suffix + '_controller...')
+     client = actionlib.SimpleActionClient(
+-        'gripper' + suffix + '_controller/follow_joint_trajectory', FollowJointTrajectoryAction)
++        'gripper' + suffix + '_controller/follow_joint_trajectory', FollowJointTrajectoryAction
++    )
+     client.wait_for_server()
+     rospy.loginfo('...connected.')
+ 
+diff --git a/pal_gripper_description/robots/gripper_test.urdf.xacro b/pal_gripper_description/robots/gripper_test.urdf.xacro
+index 569055294759812a2f625a4a8144aeb30a3fef2a..6796e1f2648a7bea21fc835f05c9f1c4f05b6a86 100644
+--- a/pal_gripper_description/robots/gripper_test.urdf.xacro
++++ b/pal_gripper_description/robots/gripper_test.urdf.xacro
+@@ -16,6 +16,7 @@ limitations under the License.
+  -->
+ <robot xmlns:xacro="http://ros.org/wiki/xacro"
+        name="pal_gripper">
++  <xacro:arg name="use_sim_time" default="true"/>
+   <!--External resources-->
+   <xacro:include filename="$(find pal_urdf_utils)/urdf/deg_to_rad.urdf.xacro" />
+   <xacro:include filename="$(find pal_gripper_description)/urdf/gripper.urdf.xacro" />
+diff --git a/pal_gripper_description/urdf/gripper.gazebo.xacro b/pal_gripper_description/urdf/gripper.gazebo.xacro
+index 9406be037a1eb2609989e0aca5e4945670b55444..6e0147cd568da90b04d6eda442fabfdfd725f5bc 100644
+--- a/pal_gripper_description/urdf/gripper.gazebo.xacro
++++ b/pal_gripper_description/urdf/gripper.gazebo.xacro
+@@ -23,8 +23,6 @@ limitations under the License.
+       <mu1>1.0</mu1>
+       <mu2>1.0</mu2>
+       <fdir1>0 0 0</fdir1>
+-      <maxVel>1.0</maxVel>
+-      <minDepth>0.1</minDepth>
+       <material>Gazebo/Black</material>
+     </gazebo>
+     <gazebo reference="${name}_joint">
+diff --git a/pal_gripper_description/urdf/gripper.urdf.xacro b/pal_gripper_description/urdf/gripper.urdf.xacro
+index 5b1001d1cedd105d9b32a80eafef0369ff53df06..9d3fddbf83ed241394b62ea39eebbfcc5f10d3d8 100644
+--- a/pal_gripper_description/urdf/gripper.urdf.xacro
++++ b/pal_gripper_description/urdf/gripper.urdf.xacro
+@@ -8,17 +8,9 @@
+ 
+   <xacro:property name="gripper_eps" value="0.001" />
+ 
+-  <xacro:macro name="pal_gripper" params="name parent *origin">
++  <xacro:macro name="pal_gripper" params="name parent *origin calibration_tool:=False">
+ 
+-  <link name="${name}_tool_link">
+-    <inertial>
+-      <origin xyz="0 0 0" rpy="0 0 0" />
+-      <mass value="0.0001" />
+-      <inertia ixx="0.00001" ixy="0.0" ixz="0.0"
+-               iyy="0.00001" iyz="0.0"
+-               izz="0.00001" />
+-    </inertial>
+-  </link>
++  <link name="${name}_tool_link"/>
+ 
+   <joint name="${name}_tool_joint" type="fixed">
+     <xacro:insert_block name="origin"/>
+@@ -38,14 +30,14 @@
+     <visual>
+       <origin rpy="0 0 0" xyz="0 0 0" />
+       <geometry>
+-        <mesh filename="file://$(find pal_gripper_description)/meshes/gripper_link.stl"/>
++        <mesh filename="package://pal_gripper_description/meshes/gripper_link.stl"/>
+       </geometry>
+       <material name="White"/>
+     </visual>
+     <collision>
+       <origin rpy="0 0 0" xyz="0 0 0" />
+       <geometry>
+-        <mesh filename="file://$(find pal_gripper_description)/meshes/gripper_link_collision.stl"/>
++        <mesh filename="package://pal_gripper_description/meshes/gripper_link_collision.stl"/>
+       </geometry>
+     </collision>
+   </link>
+@@ -62,16 +54,16 @@
+ 
+   <link name="${name}_right_finger_link">
+     <inertial>
+-      <origin rpy="0 0 0" xyz="-0.004470 0.010766 -0.121013" />
+-      <mass value="0.109980" />
+-      <inertia ixx="0.0" ixy="0.0" ixz="0.0"
+-               iyy="0.0" iyz="0.0"
+-               izz="0.0" />
++      <origin rpy="0 0 0" xyz="0.008658 0.019724 -0.149125" />
++      <mass value="0.107001" />
++      <inertia ixx="0.000242" ixy="0.0" ixz="0.0"
++               iyy="0.000236" iyz="0.0"
++               izz="0.000018" />
+     </inertial>
+     <visual>
+       <origin rpy="0 0 3.1415" xyz="0 0 0" />
+       <geometry>
+-        <mesh filename="file://$(find pal_gripper_description)/meshes/gripper_finger_link.stl" scale="-1 -1 1"/>
++        <mesh filename="package://pal_gripper_description/meshes/gripper_finger_link.stl" scale="-1 -1 1"/>
+       </geometry>
+       <material name="Black"/>
+     </visual>
+@@ -86,32 +78,35 @@
+     <material>Gazebo/Black</material>
+   </gazebo>
+ 
++  <xacro:property name="gripper_lower_limit" value="0.0"/>
++
++
+   <joint name="${name}_right_finger_joint" type="prismatic">
+-    <origin rpy="0 0 0" xyz="0. 0 0" />
++    <origin rpy="0 0 0" xyz="0 0 -0.01" />
+     <parent link="${name}_link" />
+     <child link="${name}_right_finger_link" />
+     <axis xyz="1 0 0" />
+-    <limit effort="16" lower="-0.001" upper="0.045" velocity="0.05" />
++    <limit effort="16" lower="${gripper_lower_limit}" upper="0.045" velocity="0.05" />
+     <calibration rising="0.0" />
+     <dynamics damping="80" friction="2.0"/>
+     <safety_controller k_position="20"
+                        k_velocity="20"
+-                       soft_lower_limit="${0.0 - gripper_eps}"
++                       soft_lower_limit="${0.0 + gripper_eps}"
+                        soft_upper_limit="${0.045 - gripper_eps}" />
+   </joint>
+ 
+   <link name="${name}_left_finger_link">
+     <inertial>
+-      <origin rpy="0 0 0" xyz="-0.004470 0.010766 -0.121013" />
+-      <mass value="0.109980" />
+-      <inertia ixx="0.0" ixy="0.0" ixz="0.0"
+-               iyy="0.0" iyz="0.0"
+-               izz="0.0" />
++      <origin rpy="0 0 0" xyz="-0.008658 -0.019724 -0.149125" />
++      <mass value="0.107001" />
++      <inertia ixx="0.000242" ixy="0.0" ixz="0.0"
++               iyy="0.000236" iyz="0.0"
++               izz="0.000018" />
+     </inertial>
+     <visual>
+       <origin rpy="0 0 3.1415" xyz="0 0 0"/>
+       <geometry>
+-        <mesh filename="file://$(find pal_gripper_description)/meshes/gripper_finger_link.stl"/>
++        <mesh filename="package://pal_gripper_description/meshes/gripper_finger_link.stl"/>
+       </geometry>
+       <material name="Black"/>
+     </visual>
+@@ -127,35 +122,76 @@
+   </gazebo>
+ 
+   <joint name="${name}_left_finger_joint" type="prismatic">
+-    <origin rpy="0 0 0" xyz="0. 0 0" />
++    <origin rpy="0 0 0" xyz="0 0 -0.01" />
+     <parent link="${name}_link" />
+     <child link="${name}_left_finger_link" />
+     <axis xyz="-1 0 0" />
+-    <limit effort="16" lower="-0.001" upper="0.045" velocity="0.05" />
++    <limit effort="16" lower="${gripper_lower_limit}" upper="0.045" velocity="0.05" />
+     <calibration rising="0.0" />
+     <dynamics damping="80" friction="2.0"/>
+     <safety_controller k_position="20"
+                        k_velocity="20"
+-                       soft_lower_limit="${0.0 - gripper_eps}"
++                       soft_lower_limit="${0.0 + gripper_eps}"
+                        soft_upper_limit="${0.045 - gripper_eps}" />
+   </joint>
+ 
+   <!-- Grasping frame -->
+-  <joint name="${name}_grasping_frame_joint" type="fixed">
+-    <parent link="${name}_link" />
+-    <child link="${name}_grasping_frame" />
+-    <origin xyz="0 0 -0.12" rpy="-1.5708 1.5708 0" />
+-  </joint>
+-  <link name="${name}_grasping_frame">
+-    <inertial>
+-      <origin xyz="0 0 0" rpy="0 0 0" />
+-      <mass value="0.0001" />
+-      <inertia ixx="0.00001" ixy="0.0" ixz="0.0"
+-               iyy="0.00001" iyz="0.0"
+-               izz="0.00001" />
+-    </inertial>
+-  </link>
+-
++  <xacro:if value="${calibration_tool}">
++    <joint name="${name}_grasping_frame_joint" type="fixed">
++      <parent link="${name}_link" />
++      <child link="${name}_grasping_frame" />
++      <origin xyz="0 0 -0.13" rpy="-1.5708 1.5708 0" />
++    </joint>
++
++    <link name="${name}_grasping_frame">
++      <inertial>
++        <mass value="0.1" />
++        <origin xyz="0.21 0 0.0" rpy="0 0 0" />
++        <inertia ixx="0.000341" ixy="0" ixz="0" iyy="0.000241" iyz="0" izz="0.000101" />
++      </inertial>
++    
++      <visual>
++        <origin xyz="0.21 0 0.0" rpy="0 0 1.5708" />
++        <geometry>
++          <box size="0.01 0.21 0.21" />
++        </geometry>
++        <material name="grasp_box_color">
++          <color rgba="0 0 1 1" />
++        </material>
++      </visual>
++
++      <collision>
++        <origin xyz="0.21 0 0.0" rpy="0 0 1.5708" />
++        <geometry>
++          <box size="0.01 0.21 0.21" />
++        </geometry>
++      </collision>
++    </link>
++
++    <gazebo reference="${name}_grasping_frame">
++      <material>Gazebo/Blue</material>
++      <turnGravityOff>true</turnGravityOff>
++    </gazebo>
++      
++    </xacro:if>
++
++    <xacro:unless value="${calibration_tool}">
++      <joint name="${name}_grasping_frame_joint" type="fixed">
++        <parent link="${name}_link"/>
++        <child link="${name}_grasping_frame"/>
++        <origin xyz="0 0 -0.13" rpy="-1.5708 1.5708 0" />
++      </joint>
++      
++      <link name="${name}_grasping_frame">
++        <inertial>
++        <mass value="0.1" />
++        <origin xyz="0.21 0 0.0" rpy="0 0 0" />
++        <inertia ixx="0.000341" ixy="0" ixz="0" iyy="0.000241" iyz="0" izz="0.000101" />
++        </inertial>
++      </link>
++      
++    </xacro:unless>
++   
+   <xacro:finger_gazebo name="${name}_left_finger"/>
+   <xacro:finger_gazebo name="${name}_right_finger"/>
+ 
+diff --git a/pal_gripper_gazebo/CMakeLists.txt b/pal_gripper_gazebo/CMakeLists.txt
+index 4c9be3ed71a166bdc5634ef5bf14155240164a81..8a8c17fac674b2116f7e762ca3629f4b736df1d5 100644
+--- a/pal_gripper_gazebo/CMakeLists.txt
++++ b/pal_gripper_gazebo/CMakeLists.txt
+@@ -1,184 +1,10 @@
+-cmake_minimum_required(VERSION 2.8.3)
++cmake_minimum_required(VERSION 3.16)
+ project(pal_gripper_gazebo)
+ 
+-## Find catkin macros and libraries
+-## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
+-## is used, also find other catkin packages
+-find_package(catkin REQUIRED)
+-
+-## System dependencies are found with CMake's conventions
+-# find_package(Boost REQUIRED COMPONENTS system)
+-
+-
+-## Uncomment this if the package has a setup.py. This macro ensures
+-## modules and global scripts declared therein get installed
+-## See http://ros.org/doc/api/catkin/html/user_guide/setup_dot_py.html
+-# catkin_python_setup()
+-
+-################################################
+-## Declare ROS messages, services and actions ##
+-################################################
+-
+-## To declare and build messages, services or actions from within this
+-## package, follow these steps:
+-## * Let MSG_DEP_SET be the set of packages whose message types you use in
+-##   your messages/services/actions (e.g. std_msgs, actionlib_msgs, ...).
+-## * In the file package.xml:
+-##   * add a build_depend tag for "message_generation"
+-##   * add a build_depend and a run_depend tag for each package in MSG_DEP_SET
+-##   * If MSG_DEP_SET isn't empty the following dependency has been pulled in
+-##     but can be declared for certainty nonetheless:
+-##     * add a run_depend tag for "message_runtime"
+-## * In this file (CMakeLists.txt):
+-##   * add "message_generation" and every package in MSG_DEP_SET to
+-##     find_package(catkin REQUIRED COMPONENTS ...)
+-##   * add "message_runtime" and every package in MSG_DEP_SET to
+-##     catkin_package(CATKIN_DEPENDS ...)
+-##   * uncomment the add_*_files sections below as needed
+-##     and list every .msg/.srv/.action file to be processed
+-##   * uncomment the generate_messages entry below
+-##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
+-
+-## Generate messages in the 'msg' folder
+-# add_message_files(
+-#   FILES
+-#   Message1.msg
+-#   Message2.msg
+-# )
+-
+-## Generate services in the 'srv' folder
+-# add_service_files(
+-#   FILES
+-#   Service1.srv
+-#   Service2.srv
+-# )
+-
+-## Generate actions in the 'action' folder
+-# add_action_files(
+-#   FILES
+-#   Action1.action
+-#   Action2.action
+-# )
+-
+-## Generate added messages and services with any dependencies listed here
+-# generate_messages(
+-#   DEPENDENCIES
+-#   std_msgs  # Or other packages containing msgs
+-# )
+-
+-################################################
+-## Declare ROS dynamic reconfigure parameters ##
+-################################################
+-
+-## To declare and build dynamic reconfigure parameters within this
+-## package, follow these steps:
+-## * In the file package.xml:
+-##   * add a build_depend and a run_depend tag for "dynamic_reconfigure"
+-## * In this file (CMakeLists.txt):
+-##   * add "dynamic_reconfigure" to
+-##     find_package(catkin REQUIRED COMPONENTS ...)
+-##   * uncomment the "generate_dynamic_reconfigure_options" section below
+-##     and list every .cfg file to be processed
+-
+-## Generate dynamic reconfigure parameters in the 'cfg' folder
+-# generate_dynamic_reconfigure_options(
+-#   cfg/DynReconf1.cfg
+-#   cfg/DynReconf2.cfg
+-# )
+-
+-###################################
+-## catkin specific configuration ##
+-###################################
+-## The catkin_package macro generates cmake config files for your package
+-## Declare things to be passed to dependent projects
+-## INCLUDE_DIRS: uncomment this if you package contains header files
+-## LIBRARIES: libraries you create in this project that dependent projects also need
+-## CATKIN_DEPENDS: catkin_packages dependent projects also need
+-## DEPENDS: system dependencies of this project that dependent projects also need
+-catkin_package(
+-#  INCLUDE_DIRS include
+-#  LIBRARIES pal_gripper_gazebo
+-#  CATKIN_DEPENDS other_catkin_pkg
+-#  DEPENDS system_lib
+-)
+-
+-###########
+-## Build ##
+-###########
+-
+-## Specify additional locations of header files
+-## Your package locations should be listed before other locations
+-# include_directories(include)
+-
+-## Declare a C++ library
+-# add_library(pal_gripper_gazebo
+-#   src/${PROJECT_NAME}/pal_gripper_gazebo.cpp
+-# )
+-
+-## Add cmake target dependencies of the library
+-## as an example, code may need to be generated before libraries
+-## either from message generation or dynamic reconfigure
+-# add_dependencies(pal_gripper_gazebo ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+-
+-## Declare a C++ executable
+-# add_executable(pal_gripper_gazebo_node src/pal_gripper_gazebo_node.cpp)
+-
+-## Add cmake target dependencies of the executable
+-## same as for the library above
+-# add_dependencies(pal_gripper_gazebo_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+-
+-## Specify libraries to link a library or executable target against
+-# target_link_libraries(pal_gripper_gazebo_node
+-#   ${catkin_LIBRARIES}
+-# )
+-
+-#############
+-## Install ##
+-#############
+-
+-# all install targets should use catkin DESTINATION variables
+-# See http://ros.org/doc/api/catkin/html/adv_user_guide/variables.html
+-
+-## Mark executable scripts (Python etc.) for installation
+-## in contrast to setup.py, you can choose the destination
+-# install(PROGRAMS
+-#   scripts/my_python_script
+-#   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+-# )
+-
+-## Mark executables and/or libraries for installation
+-# install(TARGETS pal_gripper_gazebo pal_gripper_gazebo_node
+-#   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+-#   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+-#   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+-# )
+-
+-## Mark cpp header files for installation
+-# install(DIRECTORY include/${PROJECT_NAME}/
+-#   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+-#   FILES_MATCHING PATTERN "*.h"
+-#   PATTERN ".svn" EXCLUDE
+-# )
+-
+-## Mark other files for installation (e.g. launch and bag files, etc.)
+-# install(FILES
+-#   # myfile1
+-#   # myfile2
+-#   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+-# )
++find_package(ament_cmake REQUIRED)
+ 
+ install(DIRECTORY launch
+-        DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+-
+-#############
+-## Testing ##
+-#############
+-
+-## Add gtest based cpp test target and link libraries
+-# catkin_add_gtest(${PROJECT_NAME}-test test/test_pal_gripper_gazebo.cpp)
+-# if(TARGET ${PROJECT_NAME}-test)
+-#   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
+-# endif()
++  DESTINATION share/${PROJECT_NAME}
++  FILES_MATCHING PATTERN "*.launch.py")
+ 
+-## Add folders to be run by python nosetests
+-# catkin_add_nosetests(test)
++ament_package()
+diff --git a/pal_gripper_gazebo/COLCON_IGNORE b/pal_gripper_gazebo/COLCON_IGNORE
+deleted file mode 100644
+index e69de29bb2d1d6434b8b29ae775ad8c2e48c5391..0000000000000000000000000000000000000000
+diff --git a/pal_gripper_gazebo/package.xml b/pal_gripper_gazebo/package.xml
+index b6518462f8822ccd103afc07cd714a756c9851d2..c6cf19a98447ce1032037da4d985bf61840b6c86 100644
+--- a/pal_gripper_gazebo/package.xml
++++ b/pal_gripper_gazebo/package.xml
+@@ -1,18 +1,13 @@
+ <?xml version="1.0"?>
+-<package>
++<package format="3">
+   <name>pal_gripper_gazebo</name>
+   <version>1.0.3</version>
+-  <description>The pal_gripper_gazebo package</description>
+-
+-  <author email="sam.pfeiffer@pal-robotics.com">Sam Pfeiffer</author>
++  <description>Gazebo Harmonic compatibility entry point for PAL gripper simulation.</description>
+   <maintainer email="tiago-support@pal-robotics.com">TIAGo support team</maintainer>
+-
+   <license>BSD</license>
+-
+   <url type="website">https://github.com/pal-robotics/tiago_simulation</url>
+-
+-  <buildtool_depend>catkin</buildtool_depend>
+-  <run_depend>pal_hardware_gazebo</run_depend>
+-  <run_depend>pal_gripper_description</run_depend>
+-
++  <buildtool_depend>ament_cmake</buildtool_depend>
++  <exec_depend>pal_gripper_simulation</exec_depend>
++  <exec_depend>ros_gz_sim</exec_depend>
++  <export><build_type>ament_cmake</build_type></export>
+ </package>
+diff --git a/pal_gripper_simulation/launch/gazebo.launch.py b/pal_gripper_simulation/launch/gazebo.launch.py
+index 0ac18c18756c351dce002e9a2175ae34327c13fb..a9ccafb6bb9213aa002faf1ecd35f30a037208b6 100644
+--- a/pal_gripper_simulation/launch/gazebo.launch.py
++++ b/pal_gripper_simulation/launch/gazebo.launch.py
+@@ -12,26 +12,29 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
+-import os
+-from os import pathsep, environ
+ from dataclasses import dataclass
+-
++import os
++from os import environ
++from os import pathsep
+ 
+ from ament_index_python.packages import get_package_prefix
+-
+ from launch import LaunchDescription
+-from launch.actions import DeclareLaunchArgument, SetEnvironmentVariable
+-from launch_pal.include_utils import include_scoped_launch_py_description
++from launch.actions import DeclareLaunchArgument
++from launch.actions import SetEnvironmentVariable
+ from launch_pal.arg_utils import LaunchArgumentsBase
+ from launch_pal.include_utils import include_launch_py_description
++from launch_pal.include_utils import include_scoped_launch_py_description
++from launch_ros.actions import Node
+ 
+ 
+ @dataclass(frozen=True)
+ class LaunchArguments(LaunchArgumentsBase):
++    gzclient: DeclareLaunchArgument = DeclareLaunchArgument(
++        name='gzclient', default_value='True', choices=['True', 'False']
++    )
+     use_sim_time: DeclareLaunchArgument = DeclareLaunchArgument(
+-        name='use_sim_time',
+-        default_value='True',
+-        description='Use simulation time')
++        name='use_sim_time', default_value='True', description='Use simulation time'
++    )
+ 
+ 
+ def get_model_paths(packages_names):
+@@ -53,41 +56,52 @@ def declare_actions(ld: LaunchDescription, launch_args: LaunchArguments):
+     robot_state_publisher = include_scoped_launch_py_description(
+         pkg_name='pal_gripper_simulation',
+         paths=['launch', 'robot_state_publisher.launch.py'],
+-        launch_arguments={
+-            "use_sim_time": launch_args.use_sim_time
+-        })
++        launch_arguments={'use_sim_time': launch_args.use_sim_time},
++    )
+ 
+     spawn_model = include_launch_py_description(
+-        'pal_gripper_simulation', ['launch', 'gripper_spawn.launch.py'])
++        'pal_gripper_simulation', ['launch', 'gripper_spawn.launch.py']
++    )
+ 
+     pal_gripper_controllers = include_launch_py_description(
+         pkg_name='pal_gripper_controller_configuration',
+-        paths=['launch', 'pal_gripper_controller.launch.py'])
++        paths=['launch', 'pal_gripper_controller.launch.py'],
++    )
+ 
+     joint_state_broadcaster_launch = include_launch_py_description(
+         pkg_name='pal_gripper_controller_configuration',
+-        paths=['launch', 'joint_state_broadcaster.launch.py'])
++        paths=['launch', 'joint_state_broadcaster.launch.py'],
++    )
+ 
+     packages = ['pal_gripper_description']
+     model_path = pathsep + get_model_paths(packages)
+ 
+-    if 'GAZEBO_MODEL_PATH' in environ:
+-        model_path += pathsep + environ['GAZEBO_MODEL_PATH']
++    if 'GZ_SIM_RESOURCE_PATH' in environ:
++        model_path += pathsep + environ['GZ_SIM_RESOURCE_PATH']
+ 
+-    gazebo_model_path_env_var = SetEnvironmentVariable(
+-        'GAZEBO_MODEL_PATH', model_path)
++    gazebo_model_path_env_var = SetEnvironmentVariable('GZ_SIM_RESOURCE_PATH', model_path)
+ 
+     gazebo = include_scoped_launch_py_description(
+         pkg_name='pal_gazebo_worlds',
+         paths=['launch', 'pal_gazebo.launch.py'],
+         env_vars=[gazebo_model_path_env_var],
+         launch_arguments={
+-            "world_name": 'empty',
+-            "model_paths": packages,
+-            "resource_paths": packages,
+-        })
++            'world_name': 'empty',
++            'gzclient': launch_args.gzclient,
++            'model_paths': packages,
++            'resource_paths': packages,
++        },
++    )
+ 
+     ld.add_action(gazebo)
++    ld.add_action(
++        Node(
++            package='ros_gz_bridge',
++            executable='parameter_bridge',
++            output='screen',
++            arguments=['/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock'],
++        )
++    )
+     ld.add_action(robot_state_publisher)
+     ld.add_action(spawn_model)
+     ld.add_action(pal_gripper_controllers)
+diff --git a/pal_gripper_simulation/launch/gripper_spawn.launch.py b/pal_gripper_simulation/launch/gripper_spawn.launch.py
+index 63c4ee5360dcb947b698beb61d80097c6c51ef92..56340dcce9930be8eb2520acb2e3b1be3951c44d 100644
+--- a/pal_gripper_simulation/launch/gripper_spawn.launch.py
++++ b/pal_gripper_simulation/launch/gripper_spawn.launch.py
+@@ -12,23 +12,33 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
+-from launch import LaunchDescription
++from pathlib import Path
+ 
++from ament_index_python.packages import get_package_share_directory
++from launch import LaunchDescription
++from launch.actions import OpaqueFunction
++from launch.substitutions import LaunchConfiguration
++from launch_pal.urdf_utils import harmonic_spawn_description
++from launch_param_builder import load_xacro
+ from launch_ros.actions import Node
+ 
+ 
+-def generate_launch_description():
++def spawn_gripper(context):
++    description = load_xacro(
++        Path(get_package_share_directory('pal_gripper_description'))
++        / 'robots'
++        / 'gripper_test.urdf.xacro',
++        {'use_sim_time': LaunchConfiguration('use_sim_time', default='True').perform(context)},
++    )
+     spawn_model = Node(
+-        package='gazebo_ros',
+-        executable='spawn_entity.py',
+-        arguments=['-topic', 'robot_description',
+-                   '-entity', 'pal_gripper'
+-                   ],
+-        output='screen')
++        package='ros_gz_sim',
++        executable='create',
++        arguments=['-string', harmonic_spawn_description(description), '-name', 'pal_gripper'],
++        output='screen',
++    )
+ 
+-    # Create the launch description and populate
+-    ld = LaunchDescription()
++    return [spawn_model]
+ 
+-    ld.add_action(spawn_model)
+ 
+-    return ld
++def generate_launch_description():
++    return LaunchDescription([OpaqueFunction(function=spawn_gripper)])
+diff --git a/pal_gripper_simulation/launch/robot_state_publisher.launch.py b/pal_gripper_simulation/launch/robot_state_publisher.launch.py
+index ce9734790a6ff199e348a30bfc9294a803150dee..3a07f36aa4ac3471d803274bf3390f282b7bf739 100644
+--- a/pal_gripper_simulation/launch/robot_state_publisher.launch.py
++++ b/pal_gripper_simulation/launch/robot_state_publisher.launch.py
+@@ -12,43 +12,48 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
+-import os
+-
+ from dataclasses import dataclass
++import os
++from pathlib import Path
+ 
+ from ament_index_python.packages import get_package_share_directory
+-from launch_pal.arg_utils import LaunchArgumentsBase
+-from launch.actions import DeclareLaunchArgument, OpaqueFunction
+-from launch.substitutions import LaunchConfiguration
+ from launch import LaunchDescription
+-from launch_pal.arg_utils import read_launch_argument, CommonArgs
+-
+-
+-from pathlib import Path
++from launch.actions import DeclareLaunchArgument
++from launch.actions import OpaqueFunction
++from launch.substitutions import LaunchConfiguration
++from launch_pal.arg_utils import LaunchArgumentsBase
++from launch_pal.arg_utils import read_launch_argument
++from launch_pal.robot_arguments import CommonArgs
+ from launch_param_builder import load_xacro
+ from launch_ros.actions import Node
+ 
+ 
+ @dataclass(frozen=True)
+ class LaunchArguments(LaunchArgumentsBase):
+-
+     use_sim_time: DeclareLaunchArgument = CommonArgs.use_sim_time
+ 
+ 
+ def launch_setup(context, *args, **kwargs):
+ 
+-    robot_description = {'robot_description': load_xacro(
+-        Path(os.path.join(
+-            get_package_share_directory('pal_gripper_description'), 'robots',
+-            'gripper_test.urdf.xacro')),
+-        {'use_sim_time': read_launch_argument('use_sim_time', context)}
+-    )}
+-
+-    rsp = Node(package='robot_state_publisher',
+-               executable='robot_state_publisher',
+-               output='both',
+-               parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')},
+-                           robot_description])
++    robot_description = {
++        'robot_description': load_xacro(
++            Path(
++                os.path.join(
++                    get_package_share_directory('pal_gripper_description'),
++                    'robots',
++                    'gripper_test.urdf.xacro',
++                )
++            ),
++            {'use_sim_time': read_launch_argument('use_sim_time', context)},
++        )
++    }
++
++    rsp = Node(
++        package='robot_state_publisher',
++        executable='robot_state_publisher',
++        output='both',
++        parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}, robot_description],
++    )
+     return [rsp]
+ 
+ 
+diff --git a/pal_gripper_simulation/package.xml b/pal_gripper_simulation/package.xml
+index c03824c2e02582a9947ba614388cc98c15172ccc..2f58ea79b399a7811c69ff99a5efaac93a9cd1e1 100644
+--- a/pal_gripper_simulation/package.xml
++++ b/pal_gripper_simulation/package.xml
+@@ -10,7 +10,12 @@
+ 
+   <exec_depend>xacro</exec_depend>
+   <exec_depend>pal_urdf_utils</exec_depend>
++  <exec_depend>ros_gz_sim</exec_depend>
++  <exec_depend>ros_gz_bridge</exec_depend>
+   <exec_depend>pal_gazebo_worlds</exec_depend>
++  <exec_depend>launch_ros</exec_depend>
++  <exec_depend>launch_pal</exec_depend>
++  <exec_depend>launch_param_builder</exec_depend>
+   <exec_depend>pal_gripper_controller_configuration</exec_depend>
+   <exec_depend>pal_gripper_description</exec_depend>
+   <exec_depend>robot_state_publisher</exec_depend>
+diff --git a/pal_parallel_gripper_wrapper/CMakeLists.txt b/pal_parallel_gripper_wrapper/CMakeLists.txt
+index 20a4e4eab9ddfbfe43dfd298d7ba8d30a3e02748..f8667307a7a1200c6b78f3087c68ced20d97320b 100644
+--- a/pal_parallel_gripper_wrapper/CMakeLists.txt
++++ b/pal_parallel_gripper_wrapper/CMakeLists.txt
+@@ -1,86 +1,8 @@
+-cmake_minimum_required(VERSION 2.8.3)
++cmake_minimum_required(VERSION 3.16)
+ project(pal_parallel_gripper_wrapper)
+ 
+-## Find catkin macros and libraries
+-## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
+-## is used, also find other catkin packages
+-find_package(catkin REQUIRED COMPONENTS
+-  actionlib
+-  control_msgs
+-  rospy
+-  trajectory_msgs
+-)
++find_package(ament_cmake REQUIRED)
+ 
+-## System dependencies are found with CMake's conventions
+-# find_package(Boost REQUIRED COMPONENTS system)
++install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
+ 
+-
+-## Uncomment this if the package has a setup.py. This macro ensures
+-## modules and global scripts declared therein get installed
+-## See http://ros.org/doc/api/catkin/html/user_guide/setup_dot_py.html
+-# catkin_python_setup()
+-
+-
+-
+-###################################
+-## catkin specific configuration ##
+-###################################
+-## The catkin_package macro generates cmake config files for your package
+-## Declare things to be passed to dependent projects
+-## INCLUDE_DIRS: uncomment this if you package contains header files
+-## LIBRARIES: libraries you create in this project that dependent projects also need
+-## CATKIN_DEPENDS: catkin_packages dependent projects also need
+-## DEPENDS: system dependencies of this project that dependent projects also need
+-catkin_package(
+-#  INCLUDE_DIRS include
+-#  LIBRARIES pal_parallel_gripper_wrapper
+-#  CATKIN_DEPENDS actionlib control_msgs rospy trajectory_msgs
+-#  DEPENDS system_lib
+-)
+-
+-###########
+-## Build ##
+-###########
+-
+-## Specify additional locations of header files
+-## Your package locations should be listed before other locations
+-# include_directories(include)
+-include_directories(
+-  ${catkin_INCLUDE_DIRS}
+-)
+-
+-
+-#############
+-## Install ##
+-#############
+-
+-# all install targets should use catkin DESTINATION variables
+-# See http://ros.org/doc/api/catkin/html/adv_user_guide/variables.html
+-
+-## Mark executable scripts (Python etc.) for installation
+-## in contrast to setup.py, you can choose the destination
+-install(PROGRAMS
+-  scripts/parallel_gripper_fake.py
+-  scripts/gripper_grasping.py
+-  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+-)
+-
+-
+-
+-foreach (dir launch config)
+-  install(DIRECTORY ${dir}/
+-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/${dir})
+-endforeach(dir)
+-
+-#############
+-## Testing ##
+-#############
+-
+-## Add gtest based cpp test target and link libraries
+-# catkin_add_gtest(${PROJECT_NAME}-test test/test_pal_parallel_gripper_wrapper.cpp)
+-# if(TARGET ${PROJECT_NAME}-test)
+-#   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
+-# endif()
+-
+-## Add folders to be run by python nosetests
+-# catkin_add_nosetests(test)
++ament_package()
+diff --git a/pal_parallel_gripper_wrapper/COLCON_IGNORE b/pal_parallel_gripper_wrapper/COLCON_IGNORE
+deleted file mode 100644
+index e69de29bb2d1d6434b8b29ae775ad8c2e48c5391..0000000000000000000000000000000000000000
+diff --git a/pal_parallel_gripper_wrapper/package.xml b/pal_parallel_gripper_wrapper/package.xml
+index 9ec77fc4e39a52d1a1ca74743bd763f762bba27f..6bed6ad18648252a5fe8769291a06f88bc5830ba 100644
+--- a/pal_parallel_gripper_wrapper/package.xml
++++ b/pal_parallel_gripper_wrapper/package.xml
+@@ -1,25 +1,12 @@
+ <?xml version="1.0"?>
+-<package>
++<package format="3">
+   <name>pal_parallel_gripper_wrapper</name>
+   <version>1.0.3</version>
+-  <description>The pal_parallel_gripper_wrapper package</description>
+-
+-  <maintainer email="sam.pfeiffer@pal-robotics.com">Sam Pfeiffer</maintainer>
++  <description>Compatibility metadata for the retired ROS 1 parallel-gripper wrapper.</description>
+   <maintainer email="tiago-support@pal-robotics.com">TIAGo support team</maintainer>
+-
+   <license>BSD</license>
+-
+   <url type="website">https://github.com/pal-robotics/tiago_simulation</url>
+-
+-  <buildtool_depend>catkin</buildtool_depend>
+-  <build_depend>actionlib</build_depend>
+-  <build_depend>control_msgs</build_depend>
+-  <build_depend>rospy</build_depend>
+-  <build_depend>trajectory_msgs</build_depend>
+-  <run_depend>actionlib</run_depend>
+-  <run_depend>control_msgs</run_depend>
+-  <run_depend>rospy</run_depend>
+-  <run_depend>trajectory_msgs</run_depend>
+-  <run_depend>ddynamic_reconfigure_python</run_depend>
+-
++  <buildtool_depend>ament_cmake</buildtool_depend>
++  <exec_depend>pal_gripper_controller_configuration</exec_depend>
++  <export><build_type>ament_cmake</build_type></export>
+ </package>
+diff --git a/pal_parallel_gripper_wrapper/scripts/gripper_grasping.py b/pal_parallel_gripper_wrapper/scripts/gripper_grasping.py
+index 0b5ee5372c6448ba777e47b4dddb9cf81409c5ba..e517abb34b603faf99f3d33958286f11db136d40 100755
+--- a/pal_parallel_gripper_wrapper/scripts/gripper_grasping.py
++++ b/pal_parallel_gripper_wrapper/scripts/gripper_grasping.py
+@@ -9,63 +9,69 @@ so to skip overheating.
+ 
+ """
+ 
+-import rospy
+ from control_msgs.msg import JointTrajectoryControllerState
+-from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
+-from std_srvs.srv import Empty, EmptyResponse
+ from ddynamic_reconfigure_python.ddynamic_reconfigure import DDynamicReconfigure
++import rospy
++from std_srvs.srv import Empty
++from std_srvs.srv import EmptyResponse
++from trajectory_msgs.msg import JointTrajectory
++from trajectory_msgs.msg import JointTrajectoryPoint
+ 
+ 
+ class GripperGrasper(object):
+     def __init__(self):
+-        rospy.loginfo("Initializing GripperGrasper...")
++        rospy.loginfo('Initializing GripperGrasper...')
+         # This node Dynamic params
+-        self.ddr = DDynamicReconfigure("grasper")
+-        self.max_position_error = self.ddr.add_variable("max_position_error",
+-                                                        "Max absolute value of controller state of any joint to stop closing",
++        self.ddr = DDynamicReconfigure('grasper')
++        self.max_position_error = self.ddr.add_variable('max_position_error',
++                                                        'Max absolute value of controller state of any joint to stop closing',
+                                                         0.002, 0.00001, 0.045)
+-        self.timeout = self.ddr.add_variable("timeout",
+-                                             "timeout for the closing action",
++        self.timeout = self.ddr.add_variable('timeout',
++                                             'timeout for the closing action',
+                                              5.0, 0.0, 30.0)
+-        self.closing_time = self.ddr.add_variable("closing_time",
+-                                                  "Time for the closing goal",
++        self.closing_time = self.ddr.add_variable('closing_time',
++                                                  'Time for the closing goal',
+                                                   2.0, 0.01, 30.0)
+-        self.rate = self.ddr.add_variable("rate",
+-                                          "Rate Hz at which the node closing will do stuff",
++        self.rate = self.ddr.add_variable('rate',
++                                          'Rate Hz at which the node closing will do stuff',
+                                           5, 1, 50)
+ 
+         self.ddr.start(self.ddr_cb)
+-        rospy.loginfo("Initialized dynamic reconfigure on: " + str(rospy.get_name()))
++        rospy.loginfo('Initialized dynamic reconfigure on: ' +
++                      str(rospy.get_name()))
+ 
+         # Subscriber to the gripper state
+         self.last_state = None
+-        self.controller_name = rospy.get_param("~controller_name", None)
++        self.controller_name = rospy.get_param('~controller_name', None)
+         if not self.controller_name:
+-            rospy.logerr("No controller name found in param: ~controller_name")
++            rospy.logerr('No controller name found in param: ~controller_name')
+             exit(1)
+-        self.real_joint_names = rospy.get_param("~real_joint_names", None)
++        self.real_joint_names = rospy.get_param('~real_joint_names', None)
+         if not self.real_joint_names:
+             rospy.logerr(
+-                "No real joint names given in param: ~real_joint_names")
++                'No real joint names given in param: ~real_joint_names')
+             exit(1)
+         self.state_sub = rospy.Subscriber('/' + self.controller_name + '_controller/state',
+                                           JointTrajectoryControllerState,
+                                           self.state_cb,
+                                           queue_size=1)
+-        rospy.loginfo("Subscribed to topic: " + str(self.state_sub.resolved_name))
++        rospy.loginfo('Subscribed to topic: ' +
++                      str(self.state_sub.resolved_name))
+ 
+         # Publisher on the gripper command topic
+         self.cmd_pub = rospy.Publisher('/' + self.controller_name + '_controller/command',
+                                        JointTrajectory,
+                                        queue_size=1)
+-        rospy.loginfo("Publishing to topic: " + str(self.cmd_pub.resolved_name))
++        rospy.loginfo('Publishing to topic: ' +
++                      str(self.cmd_pub.resolved_name))
+ 
+         # Grasping service to offer
+         self.grasp_srv = rospy.Service('/' + self.controller_name + '_controller/grasp',
+                                        Empty,
+                                        self.grasp_cb)
+-        rospy.loginfo("Offering grasp service on: " + str(self.grasp_srv.resolved_name))
+-        rospy.loginfo("Done initializing GripperGrasper!")
++        rospy.loginfo('Offering grasp service on: ' +
++                      str(self.grasp_srv.resolved_name))
++        rospy.loginfo('Done initializing GripperGrasper!')
+ 
+     def ddr_cb(self, config, level):
+         self.max_position_error = config['max_position_error']
+@@ -74,12 +80,11 @@ class GripperGrasper(object):
+         self.rate = config['rate']
+         return config
+ 
+-
+     def state_cb(self, data):
+         self.last_state = data
+ 
+     def grasp_cb(self, req):
+-        rospy.logdebug("Received grasp request!")
++        rospy.logdebug('Received grasp request!')
+         # From wherever we are close gripper
+ 
+         # Keep closing until the error of the state reaches
+@@ -94,12 +99,12 @@ class GripperGrasper(object):
+         on_optimal_close = False
+         while not rospy.is_shutdown() and (rospy.Time.now() - initial_time) < rospy.Duration(self.timeout) and not on_optimal_close:
+             if -self.last_state.error.positions[0] > self.max_position_error:
+-                rospy.logdebug("Over error joint 0...")
++                rospy.logdebug('Over error joint 0...')
+                 closing_amount = self.get_optimal_close()
+                 on_optimal_close = True
+ 
+             elif -self.last_state.error.positions[1] > self.max_position_error:
+-                rospy.logdebug("Over error joint 1...")
++                rospy.logdebug('Over error joint 1...')
+                 closing_amount = self.get_optimal_close()
+                 on_optimal_close = True
+             self.send_close(closing_amount)
+@@ -108,12 +113,14 @@ class GripperGrasper(object):
+         return EmptyResponse()
+ 
+     def get_optimal_close(self):
+-        optimal_0 = self.last_state.actual.positions[0] - self.max_position_error
+-        optimal_1 = self.last_state.actual.positions[1] - self.max_position_error
++        optimal_0 = self.last_state.actual.positions[0] - \
++            self.max_position_error
++        optimal_1 = self.last_state.actual.positions[1] - \
++            self.max_position_error
+         return [optimal_0, optimal_1]
+ 
+     def send_close(self, closing_amount):
+-        rospy.loginfo("Closing: " + str(closing_amount))
++        rospy.loginfo('Closing: ' + str(closing_amount))
+         jt = JointTrajectory()
+         jt.joint_names = self.real_joint_names
+         p = JointTrajectoryPoint()
+diff --git a/pal_parallel_gripper_wrapper/scripts/parallel_gripper_fake.py b/pal_parallel_gripper_wrapper/scripts/parallel_gripper_fake.py
+index d9ecdf840767e79c60b633064dfaa6df25ae960e..8f4c17576a49159c1aafcf6bb7bf82462b9c303d 100755
+--- a/pal_parallel_gripper_wrapper/scripts/parallel_gripper_fake.py
++++ b/pal_parallel_gripper_wrapper/scripts/parallel_gripper_fake.py
+@@ -5,70 +5,71 @@ the real follow joint trajectory action server
+ that contains two joints, to just show one joint
+ to control a gripper"""
+ 
+-import rospy
+ import actionlib
+-from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
+-from control_msgs.msg import FollowJointTrajectoryAction, \
+-    FollowJointTrajectoryGoal, \
+-    FollowJointTrajectoryResult, \
+-    FollowJointTrajectoryFeedback, \
+-    JointTrajectoryControllerState
++from control_msgs.msg import FollowJointTrajectoryAction
++from control_msgs.msg import FollowJointTrajectoryFeedback
++from control_msgs.msg import FollowJointTrajectoryGoal
++from control_msgs.msg import FollowJointTrajectoryResult
++from control_msgs.msg import JointTrajectoryControllerState
++import rospy
++from trajectory_msgs.msg import JointTrajectory
++from trajectory_msgs.msg import JointTrajectoryPoint
+ 
+ 
+ class WrappedFJTA(object):
+ 
+     def __init__(self):
+-        self.controller_name = rospy.get_param("~controller_name", None)
+-        self.pub_rate = rospy.get_param("~pub_rate", 50)
++        self.controller_name = rospy.get_param('~controller_name', None)
++        self.pub_rate = rospy.get_param('~pub_rate', 50)
+         if not self.controller_name:
+-            rospy.logerr("No controller name found in param: ~controller_name")
++            rospy.logerr('No controller name found in param: ~controller_name')
+             exit(0)
+         self.real_controller_name = rospy.get_param(
+-            "~real_controller_name", None)
++            '~real_controller_name', None)
+         if not self.real_controller_name:
+             rospy.logerr(
+-                "No real controller name given in param: ~real_controller_name")
++                'No real controller name given in param: ~real_controller_name')
+             exit(0)
+-        self.real_joint_names = rospy.get_param("~real_joint_names", None)
++        self.real_joint_names = rospy.get_param('~real_joint_names', None)
+         if not self.real_joint_names:
+             rospy.logerr(
+-                "No real joint names given in param: ~real_joint_names")
++                'No real joint names given in param: ~real_joint_names')
+             exit(0)
+-        self.gripper_joint_name = rospy.get_param("~gripper_joint_name", None)
++        self.gripper_joint_name = rospy.get_param('~gripper_joint_name', None)
+         if not self.gripper_joint_name:
+             rospy.logerr(
+-                "No gripper joint name given in param: ~gripper_joint_name")
++                'No gripper joint name given in param: ~gripper_joint_name')
+             exit(0)
+ 
+         self._cmd_sub = rospy.Subscriber('/' + self.controller_name + '_controller/command',
+                                          JointTrajectory,
+                                          self.cmd_cb,
+                                          queue_size=5)
+-        rospy.loginfo("Subscribed to " + self._cmd_sub.resolved_name)
++        rospy.loginfo('Subscribed to ' + self._cmd_sub.resolved_name)
+         self._last_state = None
+         self._state_sub = rospy.Subscriber('/' + self.real_controller_name + '_controller/state',
+                                            JointTrajectoryControllerState,
+                                            self.state_cb,
+                                            queue_size=1)
+-        rospy.loginfo("Subscribed to " + self._state_sub.resolved_name)
++        rospy.loginfo('Subscribed to ' + self._state_sub.resolved_name)
+ 
+         self._state_pub = rospy.Publisher('/' + self.controller_name + '_controller/state',
+                                           JointTrajectoryControllerState,
+                                           queue_size=5)
+-        rospy.loginfo("Publishing to " + self._state_pub.resolved_name)
++        rospy.loginfo('Publishing to ' + self._state_pub.resolved_name)
+         self._state_timer = rospy.Timer(rospy.Duration(1.0 / self.pub_rate),
+                                         self.pub_state)
+-        rospy.loginfo("At a rate of " + str(self.pub_rate))
++        rospy.loginfo('At a rate of ' + str(self.pub_rate))
+ 
+         self._cmd_pub = rospy.Publisher('/' + self.real_controller_name + '_controller/command',
+                                         JointTrajectory,
+                                         queue_size=5)
+-        rospy.loginfo("Publishing to " + self._cmd_pub.resolved_name)
++        rospy.loginfo('Publishing to ' + self._cmd_pub.resolved_name)
+ 
+         # Create ActionClient to the real server
+         self._ac = actionlib.SimpleActionClient('/' + self.real_controller_name + '_controller/follow_joint_trajectory',
+                                                 FollowJointTrajectoryAction)
+-        rospy.loginfo("Created SimpleActionClient to " + '/' +
++        rospy.loginfo('Created SimpleActionClient to ' + '/' +
+                       self.real_controller_name + '_controller/follow_joint_trajectory')
+         self._ac.wait_for_server()
+ 
+@@ -76,7 +77,7 @@ class WrappedFJTA(object):
+                                                 FollowJointTrajectoryAction,
+                                                 execute_cb=self.execute_cb,
+                                                 auto_start=False)
+-        rospy.loginfo("FollowJointTrajectory AS set at " + '/' +
++        rospy.loginfo('FollowJointTrajectory AS set at ' + '/' +
+                       self.controller_name + '_controller/follow_joint_trajectory')
+         self._as.start()
+ 
+@@ -84,7 +85,7 @@ class WrappedFJTA(object):
+         """
+         :type data: JointTrajectory
+         """
+-        rospy.loginfo("Got a command goal!")
++        rospy.loginfo('Got a command goal!')
+         # Just resend goal to the real cmd topic
+         # With two joints instead of one
+         jt = self.substitute_trajectory(trajectory)
+@@ -103,7 +104,7 @@ class WrappedFJTA(object):
+                 jtp.positions = [joint_position / 2.0, joint_position / 2.0]
+                 jtp.time_from_start = jtp_in.time_from_start
+             else:
+-                rospy.logwarn("Trajectory has no positions...")
++                rospy.logwarn('Trajectory has no positions...')
+             if jtp_in.velocities:
+                 jtp.velocities.append(jtp_in.velocities[0])
+             if jtp_in.accelerations:
+@@ -123,7 +124,7 @@ class WrappedFJTA(object):
+         """
+         :type goal: FollowJointTrajectoryGoal
+         """
+-        rospy.loginfo("Got a goal!")
++        rospy.loginfo('Got a goal!')
+         # Just resend the goal to the real as
+         # while checking for cancel goals
+ 
+@@ -136,7 +137,7 @@ class WrappedFJTA(object):
+         g.trajectory = jt
+ 
+         if not self._ac.wait_for_server(rospy.Duration(5.0)):
+-            rospy.logerr("Action server for gripper not found!")
++            rospy.logerr('Action server for gripper not found!')
+             self._as.set_aborted(FollowJointTrajectoryResult())
+ 
+         # Send goal subscribing to feedback to republish it
+@@ -144,7 +145,7 @@ class WrappedFJTA(object):
+ 
+         # wait for goal to finish while checking if cancel is requested
+         while not self._ac.wait_for_result(rospy.Duration(0.1)):
+-            rospy.loginfo("Waiting for goal to finish...")
++            rospy.loginfo('Waiting for goal to finish...')
+             # Deal with goal cancelled
+             if self._as.is_preempt_requested():
+                 self._ac.cancel_all_goals()
+diff --git a/pal_gripper_gazebo/launch/gripper_gazebo.launch.py b/pal_gripper_gazebo/launch/gripper_gazebo.launch.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..657cfea26c47fd9b0d7f5fb05d6ab8a6758b9d74
+--- /dev/null
++++ b/pal_gripper_gazebo/launch/gripper_gazebo.launch.py
+@@ -0,0 +1,31 @@
++# Copyright 2026 TIAGo Jazzy port contributors
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++from launch import LaunchDescription
++from launch.actions import DeclareLaunchArgument
++from launch.substitutions import LaunchConfiguration
++from launch_pal.include_utils import include_scoped_launch_py_description
++
++
++def generate_launch_description():
++    """Preserve the legacy package entry point with native Harmonic simulation."""
++    return LaunchDescription(
++        [
++            DeclareLaunchArgument('gzclient', default_value='True'),
++            include_scoped_launch_py_description(
++                'pal_gripper_simulation',
++                ['launch', 'gazebo.launch.py'],
++                launch_arguments={'gzclient': LaunchConfiguration('gzclient')},
++            ),
++        ]
++    )

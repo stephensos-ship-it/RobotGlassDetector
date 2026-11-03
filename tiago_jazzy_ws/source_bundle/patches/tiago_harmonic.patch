@@ -1,0 +1,20 @@
+diff --git a/package.xml b/package.xml
+index 93c3dcd33bf03f0e79c1dd4e798a0337e3dab29f..4acfcfd72c737d6134c9ac8aeeecaf673c54ddd5 100644
+--- a/package.xml
++++ b/package.xml
+@@ -10,7 +10,7 @@
+   <buildtool_depend>ament_cmake</buildtool_depend>
+ 
+   <build_depend>tiago_simulation</build_depend>
+-  <build_depend>tiago_launch</build_depend>
++  <build_depend>tiago_gazebo</build_depend>
+   <build_depend>br2_gazebo_worlds</build_depend>
+   <build_depend>pmb2_navigation</build_depend>
+   <build_depend>omni_base_robot</build_depend>
+@@ -25,4 +25,4 @@
+   <export>
+     <build_type>ament_cmake</build_type>
+   </export>
+-</package>
+\ No newline at end of file
++</package>

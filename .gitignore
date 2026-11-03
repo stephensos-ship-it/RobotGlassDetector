@@ -1,0 +1,11 @@
+# Upstream checkouts are reconstructed from the pinned manifest and patch bundle.
+/tiago_jazzy_ws/src/
+
+# Native build products and local verification output.
+/tiago_jazzy_ws/build/
+/tiago_jazzy_ws/install/
+/tiago_jazzy_ws/log/
+**/__pycache__/
+**/.pytest_cache/
+**/.ruff_cache/
+*.pyc

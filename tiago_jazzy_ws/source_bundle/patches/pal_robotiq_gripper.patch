@@ -1,0 +1,982 @@
+diff --git a/pal_robotiq_controller_configuration/config/robotiq_gripper_controller.yaml b/pal_robotiq_controller_configuration/config/robotiq_gripper_controller.yaml
+index 1451b2ccdfd838b0584ff5230c3e5dcd02e581fc..022960c3b8879ddffceb0d0a8047278e778e02aa 100644
+--- a/pal_robotiq_controller_configuration/config/robotiq_gripper_controller.yaml
++++ b/pal_robotiq_controller_configuration/config/robotiq_gripper_controller.yaml
+@@ -1,4 +1,4 @@
+-${EE_SIDE_PREFIX}_controller:
++/**/${EE_SIDE_PREFIX}_controller:
+   ros__parameters:
+     type: joint_trajectory_controller/JointTrajectoryController
+     joints:
+diff --git a/pal_robotiq_controller_configuration/launch/robotiq_gripper_controller.launch.py b/pal_robotiq_controller_configuration/launch/robotiq_gripper_controller.launch.py
+index fcbcb44e7a8583974a45b63b646bfc1e8207ea35..1fe07a9611c0b2615215e5a626760f64d3065abc 100644
+--- a/pal_robotiq_controller_configuration/launch/robotiq_gripper_controller.launch.py
++++ b/pal_robotiq_controller_configuration/launch/robotiq_gripper_controller.launch.py
+@@ -12,27 +12,30 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
+-import os
+-
+ from dataclasses import dataclass
++import os
+ 
+ from ament_index_python.packages import get_package_share_directory
+ from controller_manager.launch_utils import generate_load_controller_launch_description
+-from launch_pal.param_utils import parse_parametric_yaml
+-from launch_pal.arg_utils import LaunchArgumentsBase, read_launch_argument
+-from launch.actions import DeclareLaunchArgument, SetLaunchConfiguration, OpaqueFunction
++from launch import LaunchContext
++from launch import LaunchDescription
++from launch.actions import DeclareLaunchArgument
++from launch.actions import OpaqueFunction
++from launch.actions import SetLaunchConfiguration
+ from launch.substitutions import LaunchConfiguration
+-from launch import LaunchDescription, LaunchContext
++from launch_pal.arg_utils import LaunchArgumentsBase
++from launch_pal.arg_utils import read_launch_argument
++from launch_pal.param_utils import parse_parametric_yaml
+ 
+ 
+ @dataclass(frozen=True)
+ class LaunchArguments(LaunchArgumentsBase):
+-
+     side: DeclareLaunchArgument = DeclareLaunchArgument(
+         name='side',
+         default_value='',
+         choices=['', 'left', 'right'],
+-        description='side of the end effector')
++        description='side of the end effector',
++    )
+     # model: DeclareLaunchArgument = DeclareLaunchArgument(
+     #     name='model', # Current models are robotiq-2f-85 and robotiq-2f-140
+     #     choices=['robotiq-2f-85', 'robotiq-2f-140'],
+@@ -44,8 +47,9 @@ def declare_actions(launch_description: LaunchDescription, launch_args: LaunchAr
+     launch_description.add_action(OpaqueFunction(function=setup_controller_configuration))
+ 
+     launch_controller = generate_load_controller_launch_description(
+-        controller_name=LaunchConfiguration("controller_name"),
+-        controller_params_file=LaunchConfiguration("controller_config"))
++        controller_name=LaunchConfiguration('controller_name'),
++        controller_params_file=LaunchConfiguration('controller_config'),
++    )
+ 
+     launch_description.add_action(launch_controller)
+ 
+@@ -55,20 +59,24 @@ def declare_actions(launch_description: LaunchDescription, launch_args: LaunchAr
+ def setup_controller_configuration(context: LaunchContext):
+ 
+     side = read_launch_argument('side', context)
+-    ee_prefix = "gripper"
++    ee_prefix = 'gripper'
+     if side:
+-        ee_prefix = f"gripper_{side}"
++        ee_prefix = f'gripper_{side}'
+ 
+-    controller_name = f"{ee_prefix}_controller"
+-    remappings = {"EE_SIDE_PREFIX": ee_prefix}
++    controller_name = f'{ee_prefix}_controller'
++    remappings = {'EE_SIDE_PREFIX': ee_prefix}
+     param_file = os.path.join(
+         get_package_share_directory('pal_robotiq_controller_configuration'),
+-        'config', 'robotiq_gripper_controller.yaml')
++        'config',
++        'robotiq_gripper_controller.yaml',
++    )
+ 
+     parsed_yaml = parse_parametric_yaml(source_files=[param_file], param_rewrites=remappings)
+ 
+-    return [SetLaunchConfiguration('controller_name', controller_name),
+-            SetLaunchConfiguration('controller_config', parsed_yaml)]
++    return [
++        SetLaunchConfiguration('controller_name', controller_name),
++        SetLaunchConfiguration('controller_config', parsed_yaml),
++    ]
+ 
+ 
+ def generate_launch_description():
+diff --git a/pal_robotiq_description/launch/robot_state_publisher.launch.py b/pal_robotiq_description/launch/robot_state_publisher.launch.py
+index 0eb48fd60b26db654e689c6407240c90651f01ee..d4deb033bcd38198432a9fdd13f442be2c1d3cca 100644
+--- a/pal_robotiq_description/launch/robot_state_publisher.launch.py
++++ b/pal_robotiq_description/launch/robot_state_publisher.launch.py
+@@ -12,45 +12,52 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
+-import os
+-
+ from dataclasses import dataclass
++import os
++from pathlib import Path
+ 
+ from ament_index_python.packages import get_package_share_directory
+-from launch_pal.arg_utils import LaunchArgumentsBase, read_launch_argument
+-from launch.actions import DeclareLaunchArgument, OpaqueFunction, SetLaunchConfiguration
++from launch import LaunchContext
++from launch import LaunchDescription
++from launch.actions import DeclareLaunchArgument
++from launch.actions import OpaqueFunction
++from launch.actions import SetLaunchConfiguration
+ from launch.substitutions import LaunchConfiguration
+-from launch import LaunchDescription, LaunchContext
+-
+-from pathlib import Path
++from launch_pal.arg_utils import LaunchArgumentsBase
++from launch_pal.arg_utils import read_launch_argument
+ from launch_param_builder import load_xacro
+ from launch_ros.actions import Node
+ 
+ 
+ @dataclass(frozen=True)
+ class LaunchArguments(LaunchArgumentsBase):
+-
+     sim_time_arg: DeclareLaunchArgument = DeclareLaunchArgument(
+         name='use_sim_time',
+         default_value='False',
+         choices=['', 'True', 'False'],
+-        description='Use simulation time')
++        description='Use simulation time',
++    )
+     robotiq_gripper: DeclareLaunchArgument = DeclareLaunchArgument(
+         name='gripper',
+         default_value='robotiq-2f-85',
+         choices=['robotiq-2f-85', 'robotiq-2f-140'],
+-        description='Robotiq gripper model')
++        description='Robotiq gripper model',
++    )
+ 
+ 
+ def declare_actions(launch_description: LaunchDescription, launch_args: LaunchArguments):
+ 
+     launch_description.add_action(OpaqueFunction(function=setup_controller_configuration))
+ 
+-    rsp = Node(package='robot_state_publisher',
+-               executable='robot_state_publisher',
+-               output='both',
+-               parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')},
+-                           {'robot_description': LaunchConfiguration('robot_description')}])
++    rsp = Node(
++        package='robot_state_publisher',
++        executable='robot_state_publisher',
++        output='both',
++        parameters=[
++            {'use_sim_time': LaunchConfiguration('use_sim_time')},
++            {'robot_description': LaunchConfiguration('robot_description')},
++        ],
++    )
+     launch_description.add_action(rsp)
+     return
+ 
+@@ -60,9 +67,13 @@ def setup_controller_configuration(context: LaunchContext):
+     gripper = gripper_argument.replace('-', '_')
+ 
+     robot_description = load_xacro(
+-        Path(os.path.join(
+-            get_package_share_directory('pal_robotiq_description'), 'robots',
+-            'pal_' + gripper + '_gripper.urdf.xacro')),
++        Path(
++            os.path.join(
++                get_package_share_directory('pal_robotiq_description'),
++                'robots',
++                'pal_' + gripper + '_gripper.urdf.xacro',
++            )
++        ),
+     )
+ 
+     return [SetLaunchConfiguration('robot_description', robot_description)]
+diff --git a/pal_robotiq_description/launch/show.launch.py b/pal_robotiq_description/launch/show.launch.py
+index 130bf371885488b50de9d28ce43c9ad4ca98b7e0..56ea2377b93249885deab48a7e292d5fce5a4566 100644
+--- a/pal_robotiq_description/launch/show.launch.py
++++ b/pal_robotiq_description/launch/show.launch.py
+@@ -14,12 +14,12 @@
+ 
+ from dataclasses import dataclass
+ 
+-from launch.actions import DeclareLaunchArgument
+ from launch import LaunchDescription
++from launch.actions import DeclareLaunchArgument
++from launch.substitutions import PathJoinSubstitution
+ from launch_pal.arg_utils import LaunchArgumentsBase
+ from launch_pal.include_utils import include_scoped_launch_py_description
+ from launch_ros.actions import Node
+-from launch.substitutions import PathJoinSubstitution
+ from launch_ros.substitutions import FindPackageShare
+ 
+ 
+@@ -29,7 +29,7 @@ class LaunchArguments(LaunchArgumentsBase):
+         'gripper',
+         default_value='robotiq-2f-85',
+         choices=['robotiq-2f-85', 'robotiq-2f-140'],
+-        description='Robotiq gripper model'
++        description='Robotiq gripper model',
+     )
+ 
+ 
+@@ -37,25 +37,29 @@ def declare_actions(launch_description: LaunchDescription, launch_args: LaunchAr
+     robot_state_publisher = include_scoped_launch_py_description(
+         pkg_name='pal_robotiq_description',
+         paths=['launch', 'robot_state_publisher.launch.py'],
+-        launch_arguments={'gripper': launch_args.robotiq_gripper})
++        launch_arguments={'gripper': launch_args.robotiq_gripper},
++    )
+     launch_description.add_action(robot_state_publisher)
+ 
+     start_joint_pub_gui = Node(
+         package='joint_state_publisher_gui',
+         executable='joint_state_publisher_gui',
+         name='joint_state_publisher_gui',
+-        output='screen')
++        output='screen',
++    )
+     launch_description.add_action(start_joint_pub_gui)
+ 
+     rviz_config_file = PathJoinSubstitution(
+-        [FindPackageShare('pal_robotiq_description'), 'config', 'pal_robotiq_urdf.rviz'])
++        [FindPackageShare('pal_robotiq_description'), 'config', 'pal_robotiq_urdf.rviz']
++    )
+ 
+     start_rviz_cmd = Node(
+         package='rviz2',
+         executable='rviz2',
+         name='rviz2',
+         arguments=['-d', rviz_config_file],
+-        output='screen')
++        output='screen',
++    )
+ 
+     launch_description.add_action(start_rviz_cmd)
+ 
+diff --git a/pal_robotiq_description/urdf/robotiq.ros2_control.xacro b/pal_robotiq_description/urdf/robotiq.ros2_control.xacro
+index e490c853ec16fd6357f58d359c79ab46e0310cff..e9f82840f6331342234022ce56c0d278959abca6 100644
+--- a/pal_robotiq_description/urdf/robotiq.ros2_control.xacro
++++ b/pal_robotiq_description/urdf/robotiq.ros2_control.xacro
+@@ -19,10 +19,9 @@ limitations under the License.
+     <xacro:macro name="ros2_control_mimic_joint" params="mimic_joint_name actuated_joint_name multiplier" >
+ 
+       <joint name="${mimic_joint_name}">
+-        <param name="mimic">${actuated_joint_name}</param>
+-        <param name="multiplier">${multiplier}</param>
+-        <param name="offset">0</param>
+-        <!-- Interfaces are handled automatically on Gazebo and Hardware -->
++        <!-- Jazzy derives mimic relationships from the URDF joint itself. -->
++        <state_interface name="position"/>
++        <state_interface name="velocity"/>
+       </joint>
+       
+     </xacro:macro>
+@@ -54,10 +53,6 @@ limitations under the License.
+                                     multiplier="-1"/>
+ 
+     <xacro:ros2_control_mimic_joint mimic_joint_name="${name}_left_inner_knuckle_joint" 
+-                                    actuated_joint_name="${name}_finger_joint" 
+-                                    multiplier="-1"/>
+-
+-    <xacro:ros2_control_mimic_joint mimic_joint_name="${name}_left_outer_knuckle_joint" 
+                                     actuated_joint_name="${name}_finger_joint" 
+                                     multiplier="1"/>
+     
+@@ -96,9 +91,6 @@ limitations under the License.
+                                     actuated_joint_name="${name}_finger_joint" 
+                                     multiplier="-1"/>
+ 
+-    <xacro:ros2_control_mimic_joint mimic_joint_name="${name}_left_outer_knuckle_joint" 
+-                                    actuated_joint_name="${name}_finger_joint" 
+-                                    multiplier="1"/>
+ 
+     <xacro:include filename="$(find pal_robotiq_description)/urdf/robotiq.transmission.xacro" />
+     <xacro:robotiq_transmission prefix="${name}_finger" reduction="${reduction}" />
+diff --git a/pal_robotiq_description/urdf/robotiq_140_gripper.urdf.xacro b/pal_robotiq_description/urdf/robotiq_140_gripper.urdf.xacro
+index 47f04926235997547d921d23b30f8165170e5838..89b5493380ba206ca7e1a18094b38563f9b3cbdd 100644
+--- a/pal_robotiq_description/urdf/robotiq_140_gripper.urdf.xacro
++++ b/pal_robotiq_description/urdf/robotiq_140_gripper.urdf.xacro
+@@ -109,8 +109,6 @@
+       <mu1>Inf</mu1>
+       <mu2>Inf</mu2>
+       <fdir1>0 0 0</fdir1>
+-      <maxVel>0.0</maxVel>
+-      <minDepth>0.01</minDepth>
+       <material>Gazebo/DarkGrey</material>
+     </gazebo>
+   </xacro:macro>
+@@ -158,12 +156,9 @@
+       </collision>
+       <mu1>Inf</mu1>
+       <mu2>Inf</mu2>
+-      <maxVel>0.0</maxVel>
+       <kp>Inf</kp>
+       <kd>100.0</kd>
+       <fdir1>1 0 0</fdir1>
+-      <maxVel>0.0</maxVel>
+-      <minDepth>0.01</minDepth>
+       <maxContacts>10</maxContacts>
+       <material>Gazebo/DarkGrey</material>
+     </gazebo>
+diff --git a/pal_robotiq_description/urdf/robotiq_85_gripper.urdf.xacro b/pal_robotiq_description/urdf/robotiq_85_gripper.urdf.xacro
+index 5c9a277ba628a8e0a0e3d3e6c2c82fb03ecbe319..74645418932c8d91a02202c7fa1343fb9ae80db9 100644
+--- a/pal_robotiq_description/urdf/robotiq_85_gripper.urdf.xacro
++++ b/pal_robotiq_description/urdf/robotiq_85_gripper.urdf.xacro
+@@ -108,8 +108,6 @@
+       <mu1>Inf</mu1>
+       <mu2>Inf</mu2>
+       <fdir1>0 0 0</fdir1>
+-      <maxVel>0.0</maxVel>
+-      <minDepth>0.01</minDepth>
+       <material>Gazebo/DarkGrey</material>
+     </gazebo>
+   </xacro:macro>
+@@ -157,12 +155,9 @@
+       </collision>
+       <mu1>Inf</mu1>
+       <mu2>Inf</mu2>
+-      <maxVel>0.0</maxVel>
+       <kp>Inf</kp>
+       <kd>100.0</kd>
+       <fdir1>1 0 0</fdir1>
+-      <maxVel>0.0</maxVel>
+-      <minDepth>0.02</minDepth>
+       <maxContacts>10</maxContacts>
+       <material>Gazebo/DarkGrey</material>
+     </gazebo>
+diff --git a/pal_robotiq_epick_gripper/pal_robotiq_epick_description/COLCON_IGNORE b/pal_robotiq_epick_gripper/pal_robotiq_epick_description/COLCON_IGNORE
+deleted file mode 100644
+index e69de29bb2d1d6434b8b29ae775ad8c2e48c5391..0000000000000000000000000000000000000000
+diff --git a/pal_robotiq_epick_gripper/pal_robotiq_epick_description/package.xml b/pal_robotiq_epick_gripper/pal_robotiq_epick_description/package.xml
+index d6c95bf3e587b17623457394e077d410b22c657e..27b8f1bc37c1e7f8f9518ebce15acb3f28d69bd1 100644
+--- a/pal_robotiq_epick_gripper/pal_robotiq_epick_description/package.xml
++++ b/pal_robotiq_epick_gripper/pal_robotiq_epick_description/package.xml
+@@ -10,13 +10,10 @@
+ 
+   <license>BSD</license>
+ 
+-  <buildtool_depend>catkin</buildtool_depend>
++  <buildtool_depend>ament_cmake_auto</buildtool_depend>
+   <exec_depend>xacro</exec_depend>
+ 
+ 
+   <!-- The export tag contains other, unspecified, tags -->
+-  <export>
+-    <!-- Other tools can request additional information be placed here -->
+-
+-  </export>
++  <export><build_type>ament_cmake</build_type></export>
+ </package>
+diff --git a/pal_robotiq_epick_gripper/pal_robotiq_epick_gripper/COLCON_IGNORE b/pal_robotiq_epick_gripper/pal_robotiq_epick_gripper/COLCON_IGNORE
+deleted file mode 100644
+index e69de29bb2d1d6434b8b29ae775ad8c2e48c5391..0000000000000000000000000000000000000000
+diff --git a/pal_robotiq_epick_gripper/pal_robotiq_epick_gripper/package.xml b/pal_robotiq_epick_gripper/pal_robotiq_epick_gripper/package.xml
+index 0e9e4d1b89f00db20d0b8a4ee6e39b9a4eaad214..c9158a361de27ac6cb85f1ceb319665ad2b8e087 100644
+--- a/pal_robotiq_epick_gripper/pal_robotiq_epick_gripper/package.xml
++++ b/pal_robotiq_epick_gripper/pal_robotiq_epick_gripper/package.xml
+@@ -9,10 +9,8 @@
+ 
+   <license>BSD</license>
+ 
+-  <buildtool_depend>catkin</buildtool_depend>
++  <buildtool_depend>ament_cmake_auto</buildtool_depend>
+   <exec_depend>pal_robotiq_epick_description</exec_depend>
+ 
+-  <export>
+-     <metapackage/>
+-  </export>
++  <export><build_type>ament_cmake</build_type></export>
+ </package>
+diff --git a/pal_robotiq_gripper_wrapper/CMakeLists.txt b/pal_robotiq_gripper_wrapper/CMakeLists.txt
+index 919096f49f4720eb9c9ce3ae4bb4ed0fa3391de6..b7ca73657fe69500fb484fb2bd856986693e8457 100644
+--- a/pal_robotiq_gripper_wrapper/CMakeLists.txt
++++ b/pal_robotiq_gripper_wrapper/CMakeLists.txt
+@@ -1,33 +1,8 @@
+-cmake_minimum_required(VERSION 2.8.3)
++cmake_minimum_required(VERSION 3.16)
+ project(pal_robotiq_gripper_wrapper)
+ 
+-find_package(ament_cmake_auto REQUIRED)
+-ament_auto_find_build_dependencies()
++find_package(ament_cmake REQUIRED)
+ 
++install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
+ 
+-# # include_directories(include)
+-# include_directories(
+-#   SYSTEM
+-#   ${catkin_INCLUDE_DIRS}
+-# )
+-
+-
+-# #############
+-# ## Install ##
+-# #############
+-
+-# install(PROGRAMS
+-#   scripts/gripper_grasping.py
+-#   scripts/gripper_epick_grasping.py
+-#   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+-# )
+-
+-# foreach (dir launch config)
+-#   install(DIRECTORY ${dir}/
+-#   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/${dir})
+-# endforeach(dir)
+-
+-if(BUILD_TESTING)
+-  ament_auto_find_test_dependencies()
+-  ament_lint_auto_find_test_dependencies()
+-endif()
+\ No newline at end of file
++ament_package()
+diff --git a/pal_robotiq_gripper_wrapper/COLCON_IGNORE b/pal_robotiq_gripper_wrapper/COLCON_IGNORE
+deleted file mode 100644
+index e69de29bb2d1d6434b8b29ae775ad8c2e48c5391..0000000000000000000000000000000000000000
+diff --git a/pal_robotiq_gripper_wrapper/package.xml b/pal_robotiq_gripper_wrapper/package.xml
+index 89ebbab489ff8fa15583e16967126da9164319a5..73fdd6c5ab0d67bc08d84b6dd4eebca83077f29a 100644
+--- a/pal_robotiq_gripper_wrapper/package.xml
++++ b/pal_robotiq_gripper_wrapper/package.xml
+@@ -1,24 +1,11 @@
+ <?xml version="1.0"?>
+-<package>
++<package format="3">
+   <name>pal_robotiq_gripper_wrapper</name>
+   <version>0.0.19</version>
+-  <description>The pal_robotiq_gripper_wrapper package</description>
+-  
+-  <maintainer email="daniel.lopez@pal-robotics.com">Daniel López Puig</maintainer>
+-  <maintainer email="sai.kishor@pal-robotics.com">Sai Kishor Kothakota</maintainer>
+-  <author email="sai.kishor@pal-robotics.com">Sai Kishor Kothakota</author>
+-
++  <description>Compatibility metadata for Robotiq grippers controlled directly by ros2_control.</description>
++  <maintainer email="tiago-support@pal-robotics.com">TIAGo support team</maintainer>
+   <license>BSD</license>
+-
+-  <buildtool_depend>catkin</buildtool_depend>
+-  <build_depend>actionlib</build_depend>
+-  <build_depend>control_msgs</build_depend>
+-  <build_depend>rospy</build_depend>
+-  <build_depend>trajectory_msgs</build_depend>
+-  <run_depend>actionlib</run_depend>
+-  <run_depend>control_msgs</run_depend>
+-  <run_depend>rospy</run_depend>
+-  <run_depend>trajectory_msgs</run_depend>
+-  <run_depend>ddynamic_reconfigure_python</run_depend>
+-
++  <buildtool_depend>ament_cmake</buildtool_depend>
++  <exec_depend>pal_robotiq_controller_configuration</exec_depend>
++  <export><build_type>ament_cmake</build_type></export>
+ </package>
+diff --git a/pal_robotiq_gripper_wrapper/scripts/gripper_epick_grasping.py b/pal_robotiq_gripper_wrapper/scripts/gripper_epick_grasping.py
+index 2abc26bfdd7bf377f4edbb19a4b810a76dd3ea59..5179070760d9a195e4139997e0d4798ba3c9a82c 100755
+--- a/pal_robotiq_gripper_wrapper/scripts/gripper_epick_grasping.py
++++ b/pal_robotiq_gripper_wrapper/scripts/gripper_epick_grasping.py
+@@ -7,72 +7,73 @@ Grasp controller to close with a determined error on position only
+ so to skip overheating.
+ 
+ """
+-import rospy
+-from std_msgs.msg import String, UInt8MultiArray
+-from std_srvs.srv import Empty, EmptyResponse
+-from std_msgs.msg import Bool, Float64
+ from ddynamic_reconfigure_python.ddynamic_reconfigure import DDynamicReconfigure
++import rospy
++from std_msgs.msg import Bool
++from std_msgs.msg import Float64
++from std_msgs.msg import String
++from std_msgs.msg import UInt8MultiArray
++from std_srvs.srv import Empty
++from std_srvs.srv import EmptyResponse
+ 
+ 
+ class GripperGrasp(object):
+     def __init__(self):
+         # Init Gripper grasp node
+-        rospy.loginfo("Initializing Gripper Grasper...")
+-
++        rospy.loginfo('Initializing Gripper Grasper...')
+ 
+         self.on_optimal_close = False
+         self.is_grasped_msg = Bool()
+ 
+         # Get the params from param server
+-        self.controller_name = rospy.get_param("~controller_name", None)
++        self.controller_name = rospy.get_param('~controller_name', None)
+         if not self.controller_name:
+-            rospy.logerr("No controller name found in param: ~controller_name")
++            rospy.logerr('No controller name found in param: ~controller_name')
+             exit(1)
+ 
+-    
+-
+         # Publish a human readable status of the vacuum gripper
+-        self.gripper_motor_name = rospy.get_param("~gripper_motor_name", None)
+-        self.sub_gs = rospy.Subscriber("{}/gripper_status".format(self.gripper_motor_name),
+-                         UInt8MultiArray, self.grip_status_cb, queue_size=1)
+-        self.pub_gth = rospy.Publisher("{}/gripper_status_human".format(self.gripper_motor_name), String, queue_size=1)
++        self.gripper_motor_name = rospy.get_param('~gripper_motor_name', None)
++        self.sub_gs = rospy.Subscriber('{}/gripper_status'.format(self.gripper_motor_name),
++                                       UInt8MultiArray, self.grip_status_cb, queue_size=1)
++        self.pub_gth = rospy.Publisher(
++            '{}/gripper_status_human'.format(self.gripper_motor_name), String, queue_size=1)
+ 
+         # Publish a boolean to know if an object is grasped or not
+-        self.pub_js = rospy.Publisher("{}/is_grasped".format(self.controller_name), Bool , queue_size=1)
++        self.pub_js = rospy.Publisher(
++            '{}/is_grasped'.format(self.controller_name), Bool, queue_size=1)
+ 
+         # This node Dynamic params
+         self.ddr = DDynamicReconfigure(
+-            self.controller_name + "_grasp_service")
+-        self.rate = self.ddr.add_variable("rate",
+-                                  "Rate Hz at which the node closing will do stuff",
+-                                  25, 10, 50)
+-        self.pressure_configuration = self.ddr.add_variable("pressure",
+-                                          "Requested vacuum/pressure",
+-                                          1.0, 0.1, 1.0)
++            self.controller_name + '_grasp_service')
++        self.rate = self.ddr.add_variable('rate',
++                                          'Rate Hz at which the node closing will do stuff',
++                                          25, 10, 50)
++        self.pressure_configuration = self.ddr.add_variable('pressure',
++                                                            'Requested vacuum/pressure',
++                                                            1.0, 0.1, 1.0)
+         self.ddr.start(self.ddr_cb)
+         # Publisher on the gripper command topic
+         self.cmd_pub = rospy.Publisher('/' + self.controller_name + '_controller/command',
+                                        Float64,
+                                        queue_size=1)
+-        rospy.loginfo("Publishing to topic: " +
++        rospy.loginfo('Publishing to topic: ' +
+                       str(self.cmd_pub.resolved_name))
+ 
+         # Grasping service to offer
+         self.grasp_srv = rospy.Service('/' + self.controller_name + '_controller/grasp',
+                                        Empty,
+                                        self.grasp_cb)
+-        rospy.loginfo("Offering grasp service on: " +
++        rospy.loginfo('Offering grasp service on: ' +
+                       str(self.grasp_srv.resolved_name))
+-        rospy.loginfo("Done initializing Gripper Grasp Service!")
++        rospy.loginfo('Done initializing Gripper Grasp Service!')
+ 
+         # Release service to offer
+         self.release_srv = rospy.Service('/' + self.controller_name + '_controller/release',
+-                                       Empty,
+-                                       self.release_cb)
+-        rospy.loginfo("Offering release service on: " +
++                                         Empty,
++                                         self.release_cb)
++        rospy.loginfo('Offering release service on: ' +
+                       str(self.release_srv.resolved_name))
+-        rospy.loginfo("Done initializing Gripper Release Service!")
+-
++        rospy.loginfo('Done initializing Gripper Release Service!')
+ 
+     def ddr_cb(self, config, level):
+         self.pressure_configuration = config['pressure']
+@@ -80,7 +81,7 @@ class GripperGrasp(object):
+         return config
+ 
+     def grasp_cb(self, req):
+-        rospy.logdebug("Received grasp request!")
++        rospy.logdebug('Received grasp request!')
+         # Desactivate the vacuum gripper
+         self.on_optimal_close = False
+         self.send_command(0.0)
+@@ -97,66 +98,67 @@ class GripperGrasp(object):
+         if self.on_optimal_close == False:
+             self.send_command(0.0)
+         return EmptyResponse()
+-    
++
+     def release_cb(self, req):
+-        rospy.logdebug("Received release request!")
++        rospy.logdebug('Received release request!')
+         # Desactivate the vacuum gripper
+         self.send_command(0.0)
+         return EmptyResponse()
+ 
+-
+     def send_command(self, pressure_amount):
+-        rospy.loginfo("Requested vacuum/pressure: " + str(pressure_amount))
++        rospy.loginfo('Requested vacuum/pressure: ' + str(pressure_amount))
+         vacuum_msg = Float64()
+         vacuum_msg.data = pressure_amount
+         self.cmd_pub.publish(vacuum_msg)
+ 
+-
+     def grip_status_cb(self, data):
+         # publish data to topic translated to human understanding
+         if isinstance(data.data[0], bytes):
+-            bin_number = bin(bytearray(data.data)[0])[2:].zfill(8)  # data range: 0 -> 255
++            bin_number = bin(bytearray(data.data)[0])[
++                2:].zfill(8)  # data range: 0 -> 255
+         else:
+-            bin_number = bin(data.data[0])[2:].zfill(8) # data range: 0 -> 255
+-        gOBJ = hex(int(bin_number[:2],2))
+-        gSTA = hex(int(bin_number[2:4],2))
+-        gGTO = hex(int(bin_number[4],2))
+-        gACT = hex(int(bin_number[7],2))
+-        if(str(gOBJ) == "0x1" or str(gOBJ) == "0x2"):
++            bin_number = bin(data.data[0])[2:].zfill(8)  # data range: 0 -> 255
++        gOBJ = hex(int(bin_number[:2], 2))
++        gSTA = hex(int(bin_number[2:4], 2))
++        gGTO = hex(int(bin_number[4], 2))
++        gACT = hex(int(bin_number[7], 2))
++        if (str(gOBJ) == '0x1' or str(gOBJ) == '0x2'):
+             self.is_grasped_msg.data = True
+         else:
+             if self.on_optimal_close is True:
+                 self.on_optimal_close = False
+-                self.send_command(0.0) #Release after the object is droped or released
++                # Release after the object is droped or released
++                self.send_command(0.0)
+             self.is_grasped_msg.data = False
+         self.pub_js.publish(self.is_grasped_msg)
+ 
+-        self.pub_gth.publish("Gripper status: " + self.hex_to_human(gOBJ, gSTA, gGTO, gACT))
+-
+-
++        self.pub_gth.publish('Gripper status: ' +
++                             self.hex_to_human(gOBJ, gSTA, gGTO, gACT))
+ 
+     def hex_to_human(self, gOBJ, gSTA, gGTO, gACT):
+-        gOBJ_dict = {"0x0": "Unknown object detection. Regulating towards requested vacuum/pressure",
+-                     "0x1": "Object detected. Minimum vacuum value reached",
+-                     "0x2": "Object detected. Maximum vacuum value reached",
+-                     "0x3": "No object detected. Object loss, dropped or gripping timeout reached"}
++        gOBJ_dict = {'0x0': 'Unknown object detection. Regulating towards requested vacuum/pressure',
++                     '0x1': 'Object detected. Minimum vacuum value reached',
++                     '0x2': 'Object detected. Maximum vacuum value reached',
++                     '0x3': 'No object detected. Object loss, dropped or gripping timeout reached'}
+ 
+-        gSTA_dict = {"0x0": "Gripper is not activated",
+-                     "0x3": "Gripper is operational"}
++        gSTA_dict = {'0x0': 'Gripper is not activated',
++                     '0x3': 'Gripper is operational'}
+ 
+-        gGTO_dict = {"0x0": "Stop the vacuum generator; valves are in position to hold the workpiece",
+-                     "0x1": "Follow the requested vacuum parameters in real time"}
++        gGTO_dict = {'0x0': 'Stop the vacuum generator; valves are in position to hold the workpiece',
++                     '0x1': 'Follow the requested vacuum parameters in real time'}
+ 
+-        gACT_dict = {"0x0": "Clear Gripper fault status",
+-                     "0x1": "Gripper is operational"}
++        gACT_dict = {'0x0': 'Clear Gripper fault status',
++                     '0x1': 'Gripper is operational'}
+         try:
+-            res = gACT_dict[gACT] + " " + gGTO_dict[gGTO] + " " + gSTA_dict[gSTA] + " " + gOBJ_dict[gOBJ]
++            res = gACT_dict[gACT] + ' ' + gGTO_dict[gGTO] + \
++                ' ' + gSTA_dict[gSTA] + ' ' + gOBJ_dict[gOBJ]
+         except Exception:
+-            rospy.logerr("Not able to decode hex codes in gOBJ, gSTA, gGTO, gACT")
+-            rospy.logerr("gOBJ hex: " + str(gOBJ))
+-            rospy.logerr("gSTA hex: " + str(gSTA))
+-            rospy.logerr("gGTO hex: " + str(gGTO))
+-            rospy.logerr("gACT hex: " + str(gACT))
++            rospy.logerr(
++                'Not able to decode hex codes in gOBJ, gSTA, gGTO, gACT')
++            rospy.logerr('gOBJ hex: ' + str(gOBJ))
++            rospy.logerr('gSTA hex: ' + str(gSTA))
++            rospy.logerr('gGTO hex: ' + str(gGTO))
++            rospy.logerr('gACT hex: ' + str(gACT))
+             res = None
+         return res
+ 
+diff --git a/pal_robotiq_gripper_wrapper/scripts/gripper_grasping.py b/pal_robotiq_gripper_wrapper/scripts/gripper_grasping.py
+index ec46c63cef582e343832a77d2518f82608da8acd..206e83cd827410eb5943cfb70e2f3d0b2fb91fcb 100755
+--- a/pal_robotiq_gripper_wrapper/scripts/gripper_grasping.py
++++ b/pal_robotiq_gripper_wrapper/scripts/gripper_grasping.py
+@@ -8,36 +8,40 @@ so to skip overheating.
+ 
+ """
+ 
+-import rclpy
+ import time
+-from rclpy.node import Node
++
+ from control_msgs.msg import JointTrajectoryControllerState
+-from std_msgs.msg import String, UInt8, Bool
+-from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
+-from std_srvs.srv import Empty, EmptyResponse
+-from sensor_msgs.msg import JointState
+ from rcl_interfaces import ParameterType
+ from rcl_interfaces.msg import SetParametersResult
+-
++import rclpy
++from rclpy.node import Node
+ from rclpy.parameter import Parameter
++from sensor_msgs.msg import JointState
++from std_msgs.msg import Bool
++from std_msgs.msg import String
++from std_msgs.msg import UInt8
++from std_srvs.srv import Empty
++from std_srvs.srv import EmptyResponse
++from trajectory_msgs.msg import JointTrajectory
++from trajectory_msgs.msg import JointTrajectoryPoint
+ 
+ 
+ class GripperGrasp(Node):
+     def parameters_callback(self, params):
+         for param in params:
+-            if param.name == "timeout":
++            if param.name == 'timeout':
+                 self.timeout = param.value
+-            elif param.name == "closing_time":
++            elif param.name == 'closing_time':
+                 self.closing_time = param.value
+-            elif param.name == "rate":
++            elif param.name == 'rate':
+                 self.rate = param.value
+-            elif param.name == "pressure":
++            elif param.name == 'pressure':
+                 self.pressure_configuration = param.value
+         return SetParametersResult(successful=True)
+-    
++
+     def __init__(self):
+         super().__init__('gripper_grasping')
+-        self.get_logger().info("Initializing Gripper Grasper...")
++        self.get_logger().info('Initializing Gripper Grasper...')
+ 
+         # Get the params from param server
+         self.last_state = None
+@@ -47,89 +51,91 @@ class GripperGrasp(Node):
+ 
+         # Check if simulation is running
+         self.use_sim_time = self.declare_parameter(
+-            "/use_sim_time", Parameter.Type.BOOL, False).value
++            '/use_sim_time', Parameter.Type.BOOL, False).value
+ 
+         self.controller_name = self.declare_parameter(
+-            "~controller_name", Parameter.Type.STRING, None).value
++            '~controller_name', Parameter.Type.STRING, None).value
+ 
+         if not self.controller_name:
+-            self.get_logger().error("No controller name found in param: ~controller_name")
++            self.get_logger().error('No controller name found in param: ~controller_name')
+             self.destroy_node()
+         self.real_joint_names = self.declare_parameter(
+-            "~real_joint_names", Parameter.Type.STRING, None).value
++            '~real_joint_names', Parameter.Type.STRING, None).value
+         if not self.real_joint_names:
+-            self.get_logger().error("No real joint names given in param: ~real_joint_names")
++            self.get_logger().error('No real joint names given in param: ~real_joint_names')
+             self.destroy_node()
+         self.close_configuration = self.declare_parameter(
+-            "~close_configuration", Parameter.Type.DOUBLE_ARRAY, None).value
++            '~close_configuration', Parameter.Type.DOUBLE_ARRAY, None).value
+         if not self.close_configuration:
+             self.get_logger().error(
+-                "No close configuration values given in param: ~close_configuration")
++                'No close configuration values given in param: ~close_configuration')
+             self.destroy_node()
+         if len(self.close_configuration) != len(self.real_joint_names):
+-            self.get_logger().error("The close configuration values defined in param: ~close_configuration"
+-                                    ", should be of same length as that of joints in param: ~real_joint_names")
++            self.get_logger().error('The close configuration values defined in param: ~close_configuration'
++                                    ', should be of same length as that of joints in param: ~real_joint_names')
+             self.destroy_node()
+ 
+-        
+         # self.timeout = self.declare_parameter("timeout", 2.0,
+         #                                       "timeout fort to use dynamic parameters in my ROS2 code. I defined a callback function, if a parameter is changed with following line: the closing action", )
+-        #DYNAMIC!!!
+-        self.timeout = self.declare_parameter("timeout", Parameter.Type.DOUBLE, 2.0).value
+-
+-
+-        self.closing_time = self.declare_parameter("closing_time", Parameter.Type.DOUBLE, 0.2).value
+-        self.rate = self.declare_parameter("rate",Parameter.Type.INTEGER, 25).value
+-        self.pressure_configuration = self.declare_parameter("pressure",Parameter.Type.DOUBLE, 0.08).value
++        # DYNAMIC!!!
++        self.timeout = self.declare_parameter(
++            'timeout', Parameter.Type.DOUBLE, 2.0).value
++
++        self.closing_time = self.declare_parameter(
++            'closing_time', Parameter.Type.DOUBLE, 0.2).value
++        self.rate = self.declare_parameter(
++            'rate', Parameter.Type.INTEGER, 25).value
++        self.pressure_configuration = self.declare_parameter(
++            'pressure', Parameter.Type.DOUBLE, 0.08).value
+         self.add_on_set_parameters_callback(self.parameters_callback)
+ 
+-        self.get_logger().info("Initialized dynamic reconfigure on: " + str(rclpy.get_name()))
++        self.get_logger().info('Initialized dynamic reconfigure on: ' + str(rclpy.get_name()))
+ 
+         # Set opening time of gripper
+         self.opening_time = 0.02
+ 
+         # Subscriber to the gripper state
+-        self.state_sub = self.create_subscription(JointTrajectoryControllerState, 
+-                                                  self.controller_name + 
++        self.state_sub = self.create_subscription(JointTrajectoryControllerState,
++                                                  self.controller_name +
+                                                   '_controller/state', '/' + self.state_cb, 1)
+-        self.get_logger().info("Subscribed to topic: " + str(self.state_sub.resolved_name))
++        self.get_logger().info('Subscribed to topic: ' + str(self.state_sub.resolved_name))
+ 
+         # Publisher on the gripper command topic
+-        self.cmd_pub = self.create_publisher(JointTrajectory, '/' + self.controller_name 
++        self.cmd_pub = self.create_publisher(JointTrajectory, '/' + self.controller_name
+                                              + '_controller/command', queue_size=1)
+-        self.get_logger().info("Publishing to topic: " + str(self.cmd_pub.resolved_name))
++        self.get_logger().info('Publishing to topic: ' + str(self.cmd_pub.resolved_name))
+ 
+         # Grasping service to offer
+-        self.grasp_srv = self.create_service(Empty, '/' + self.controller_name + 
++        self.grasp_srv = self.create_service(Empty, '/' + self.controller_name +
+                                              '_controller/grasp', self.grasp_cb)
+-        self.get_logger().info("Offering grasp service on: " +
+-                      str(self.grasp_srv.resolved_name))
+-        self.get_logger().info("Done initializing Gripper Grasp Service!")
++        self.get_logger().info('Offering grasp service on: ' +
++                               str(self.grasp_srv.resolved_name))
++        self.get_logger().info('Done initializing Gripper Grasp Service!')
+ 
+         # Release service to offer
+         self.release_srv = self.create_service(Empty, '/' + self.controller_name +
+                                                '_controller/release', self.release_cb)
+-        self.get_logger().info("Offering release service on: " +
+-                      str(self.release_srv.resolved_name))
+-        self.get_logger().info("Done initializing Gripper Release Service!")
++        self.get_logger().info('Offering release service on: ' +
++                               str(self.release_srv.resolved_name))
++        self.get_logger().info('Done initializing Gripper Release Service!')
+ 
+         # Publish a human readable status of the gripper (Only available in non simulation)
+         if not self.use_sim_time:
+             self.gripper_motor_name = self.declare_parameter(
+-                "~gripper_motor_name", None).value
+-            self.sub_gs = self.create_subscription(UInt8, 
+-                                                   "{}/gripper_status".format(self.gripper_motor_name),
+-                                                    self.grip_status_cb, 1)
+-            self.pub_gth = self.create_publisher(String, 
+-                                                 "{}/gripper_status_human".format(self.gripper_motor_name), 1)
+-
+-        self.pub_js = self.create_publisher(Bool, "{}/is_grasped".format(self.controller_name),
++                '~gripper_motor_name', None).value
++            self.sub_gs = self.create_subscription(UInt8,
++                                                   '{}/gripper_status'.format(
++                                                       self.gripper_motor_name),
++                                                   self.grip_status_cb, 1)
++            self.pub_gth = self.create_publisher(String,
++                                                 '{}/gripper_status_human'.format(self.gripper_motor_name), 1)
++
++        self.pub_js = self.create_publisher(Bool, '{}/is_grasped'.format(self.controller_name),
+                                             1)
+ 
+-
+     def ddr_cb(self, config, level):
+         self.get_logger().info(
+-            "timeout" + str(config['timeout']) + "closing_time" + str(config['closing_time']))
++            'timeout' + str(config['timeout']) + 'closing_time' + str(config['closing_time']))
+         if config['timeout'] - 2 <= config['closing_time']:
+             self.timeout = config['closing_time'] + 2
+             config['timeout'] = config['closing_time'] + 2
+@@ -170,7 +176,7 @@ class GripperGrasp(Node):
+             return self.is_grasped_msg.data
+ 
+     def grasp_cb(self, req):
+-        self.get_logger().debug("Received grasp request!")
++        self.get_logger().debug('Received grasp request!')
+         # From wherever we are close gripper
+         self.on_optimal_open = False
+         # Keep closing until the error of the state reaches
+@@ -181,7 +187,7 @@ class GripperGrasp(Node):
+         r = rclpy.Rate(self.rate)
+         closing_amount = self.close_configuration
+         # Initial command, wait for it to do something
+-        self.get_logger().info("Closing: " + str(closing_amount))
++        self.get_logger().info('Closing: ' + str(closing_amount))
+         self.send_joint_trajectory(
+             closing_amount, self.closing_time, self.on_optimal_close)
+         while not rclpy.is_shutdown() and \
+@@ -191,7 +197,7 @@ class GripperGrasp(Node):
+                 closing_amount = [
+                     self.last_state.actual.positions[0]+self.pressure_configuration]
+                 self.on_optimal_close = True
+-                self.get_logger().info("Closing: " + str(closing_amount))
++                self.get_logger().info('Closing: ' + str(closing_amount))
+                 self.send_joint_trajectory(
+                     closing_amount, self.closing_time, self.on_optimal_close)
+             time.sleep(self.rate)
+@@ -199,14 +205,14 @@ class GripperGrasp(Node):
+         return EmptyResponse()
+ 
+     def release_cb(self, req):
+-        self.get_logger().debug("Received release request!")
++        self.get_logger().debug('Received release request!')
+         # From wherever we are opening gripper
+         self.on_optimal_close = False
+ 
+         open_amount = [0.0] * len(self.real_joint_names)
+         # Initial command, wait for it to do something
+         if self.on_optimal_open is False:
+-            self.get_logger().info("Opening: " + str(open_amount))
++            self.get_logger().info('Opening: ' + str(open_amount))
+             self.send_joint_trajectory(
+                 open_amount, self.opening_time, self.on_optimal_open)
+             self.on_optimal_close = False
+@@ -240,45 +246,45 @@ class GripperGrasp(Node):
+         gSTA = hex(int(bin_number[2:4], 2))
+         gGTO = hex(int(bin_number[4], 2))
+         gACT = hex(int(bin_number[7], 2))
+-        if(str(gOBJ) == "0x1" or str(gOBJ) == "0x2"):
++        if (str(gOBJ) == '0x1' or str(gOBJ) == '0x2'):
+             self.is_grasped_msg.data = True
+         else:
+-            if(str(gOBJ) == "0x0" and self.on_optimal_close is True):
++            if (str(gOBJ) == '0x0' and self.on_optimal_close is True):
+                 self.is_grasped_msg.data = True
+             else:
+                 self.is_grasped_msg.data = False
+                 self.on_optimal_close = False
+         self.pub_js.publish(self.is_grasped_msg)
+ 
+-        self.pub_gth.publish("Gripper status: " +
++        self.pub_gth.publish('Gripper status: ' +
+                              self.hex_to_human(gOBJ, gSTA, gGTO, gACT))
+ 
+     def hex_to_human(self, gOBJ, gSTA, gGTO, gACT):
+-        gOBJ_dict = {"0x0": "Fingers are in motion towards requested position. No object detected",
+-                     "0x1": "Fingers have stopped due to a contact while opening before requested position. Object detected opening",
+-                     "0x2": "Fingers have stopped due to a contact while closing before requested position. Object detected closing",
+-                     "0x3": "Fingers are at requested position. No object detected or object has been loss / dropped"}
++        gOBJ_dict = {'0x0': 'Fingers are in motion towards requested position. No object detected',
++                     '0x1': 'Fingers have stopped due to a contact while opening before requested position. Object detected opening',
++                     '0x2': 'Fingers have stopped due to a contact while closing before requested position. Object detected closing',
++                     '0x3': 'Fingers are at requested position. No object detected or object has been loss / dropped'}
+ 
+-        gSTA_dict = {"0x0": "Gripper is in reset ( or automatic release ) state. See Fault Status if gripper is activated",
+-                     "0x1": "Activation in progress",
+-                     "0x2": "Not used",
+-                     "0x3": "Activation is completed"}
++        gSTA_dict = {'0x0': 'Gripper is in reset ( or automatic release ) state. See Fault Status if gripper is activated',
++                     '0x1': 'Activation in progress',
++                     '0x2': 'Not used',
++                     '0x3': 'Activation is completed'}
+ 
+-        gGTO_dict = {"0x0": "Stopped (or performing activation / automatic release)",
+-                     "0x1": "Go to Position Request"}
++        gGTO_dict = {'0x0': 'Stopped (or performing activation / automatic release)',
++                     '0x1': 'Go to Position Request'}
+ 
+-        gACT_dict = {"0x0": "Gripper reset",
+-                     "0x1": "Gripper activation"}
++        gACT_dict = {'0x0': 'Gripper reset',
++                     '0x1': 'Gripper activation'}
+         try:
+-            res = gACT_dict[gACT] + " " + gGTO_dict[gGTO] + \
+-                " " + gSTA_dict[gSTA] + " " + gOBJ_dict[gOBJ]
++            res = gACT_dict[gACT] + ' ' + gGTO_dict[gGTO] + \
++                ' ' + gSTA_dict[gSTA] + ' ' + gOBJ_dict[gOBJ]
+         except Exception:
+             self.get_logger().info(
+-                "Not able to decode hex codes in gOBJ, gSTA, gGTO, gACT")
+-            self.get_logger().info("gOBJ hex: " + str(gOBJ))
+-            self.get_logger().info("gSTA hex: " + str(gSTA))
+-            self.get_logger().info("gGTO hex: " + str(gGTO))
+-            self.get_logger().info("gACT hex: " + str(gACT))
++                'Not able to decode hex codes in gOBJ, gSTA, gGTO, gACT')
++            self.get_logger().info('gOBJ hex: ' + str(gOBJ))
++            self.get_logger().info('gSTA hex: ' + str(gSTA))
++            self.get_logger().info('gGTO hex: ' + str(gGTO))
++            self.get_logger().info('gACT hex: ' + str(gACT))
+             res = None
+         return res
+ 

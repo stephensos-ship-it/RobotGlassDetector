@@ -1,0 +1,688 @@
+diff --git a/omni_base_bringup/launch/joystick_teleop.launch.py b/omni_base_bringup/launch/joystick_teleop.launch.py
+index 521f67e49cde9a522b39ac439541f0ccb1d21c3b..26fea7d471e5cccae1cfc494198e20dbe6a0224c 100644
+--- a/omni_base_bringup/launch/joystick_teleop.launch.py
++++ b/omni_base_bringup/launch/joystick_teleop.launch.py
+@@ -25,7 +25,6 @@ from launch_ros.actions import Node
+ 
+ @dataclass(frozen=True)
+ class LaunchArguments(LaunchArgumentsBase):
+-
+     cmd_vel: DeclareLaunchArgument = DeclareLaunchArgument(
+         name='cmd_vel',
+         default_value='input_joy/cmd_vel',
+@@ -47,9 +46,7 @@ def generate_launch_description():
+     return ld
+ 
+ 
+-def declare_actions(
+-    launch_description: LaunchDescription, launch_args: LaunchArguments
+-):
++def declare_actions(launch_description: LaunchDescription, launch_args: LaunchArguments):
+ 
+     pkg_dir = get_package_share_directory('omni_base_bringup')
+     joy_teleop_path = os.path.join(pkg_dir, 'config/joy_teleop', 'joy_teleop.yaml')
+diff --git a/omni_base_bringup/launch/omni_base_bringup.launch.py b/omni_base_bringup/launch/omni_base_bringup.launch.py
+index 6c8b085a0227defb7049c7ce3f8adbfe4e9ff403..5521440b96f8a22dc0647d1f58540ab5b0397161 100644
+--- a/omni_base_bringup/launch/omni_base_bringup.launch.py
++++ b/omni_base_bringup/launch/omni_base_bringup.launch.py
+@@ -16,9 +16,9 @@ from dataclasses import dataclass
+ 
+ from launch import LaunchDescription
+ from launch.actions import DeclareLaunchArgument
+-from launch_pal.robot_arguments import CommonArgs
+ from launch_pal.arg_utils import LaunchArgumentsBase
+ from launch_pal.include_utils import include_scoped_launch_py_description
++from launch_pal.robot_arguments import CommonArgs
+ from omni_base_description.launch_arguments import OmniBaseArgs
+ 
+ 
+@@ -45,15 +45,13 @@ def generate_launch_description():
+     return ld
+ 
+ 
+-def declare_actions(
+-    launch_description: LaunchDescription, launch_args: LaunchArguments
+-):
++def declare_actions(launch_description: LaunchDescription, launch_args: LaunchArguments):
+     default_controllers = include_scoped_launch_py_description(
+         pkg_name='omni_base_controller_configuration',
+         paths=['launch', 'default_controllers.launch.py'],
+         launch_arguments={
+             'is_public_sim': launch_args.is_public_sim,
+-        }
++        },
+     )
+ 
+     launch_description.add_action(default_controllers)
+diff --git a/omni_base_bringup/launch/twist_mux.launch.py b/omni_base_bringup/launch/twist_mux.launch.py
+index 5796a054958860b758552d3875ebe39cc6c22162..2677ff8b2e5079598c909201d9f72fd4783032ba 100644
+--- a/omni_base_bringup/launch/twist_mux.launch.py
++++ b/omni_base_bringup/launch/twist_mux.launch.py
+@@ -18,9 +18,9 @@ import os
+ from ament_index_python.packages import get_package_share_directory
+ from launch import LaunchDescription
+ from launch.actions import DeclareLaunchArgument
+-from launch_pal.robot_arguments import CommonArgs
+ from launch_pal.arg_utils import LaunchArgumentsBase
+ from launch_pal.include_utils import include_scoped_launch_py_description
++from launch_pal.robot_arguments import CommonArgs
+ 
+ 
+ @dataclass(frozen=True)
+@@ -42,20 +42,19 @@ def generate_launch_description():
+     return ld
+ 
+ 
+-def declare_actions(
+-    launch_description: LaunchDescription, launch_args: LaunchArguments
+-):
++def declare_actions(launch_description: LaunchDescription, launch_args: LaunchArguments):
+     pkg_dir = get_package_share_directory('omni_base_bringup')
+ 
+     twist_mux = include_scoped_launch_py_description(
+-        'twist_mux', ['launch', 'twist_mux_launch.py'],
++        'twist_mux',
++        ['launch', 'twist_mux_launch.py'],
+         launch_arguments={
+             'cmd_vel_out': 'mobile_base_controller/cmd_vel_unstamped',
+             'config_locks': os.path.join(pkg_dir, 'config', 'twist_mux', 'twist_mux_locks.yaml'),
+             'config_topics': os.path.join(pkg_dir, 'config', 'twist_mux', 'twist_mux_topics.yaml'),
+             'config_joy': os.path.join(pkg_dir, 'config', 'twist_mux', 'joystick.yaml'),
+             'use_sim_time': launch_args.use_sim_time,
+-        }
++        },
+     )
+ 
+     launch_description.add_action(twist_mux)
+diff --git a/omni_base_controller_configuration/config/imu_sensor_broadcaster.yaml b/omni_base_controller_configuration/config/imu_sensor_broadcaster.yaml
+index e77908b5ab40adf3862c0785cd1e97fcd2dd23bc..be560670be0ba13d6e82689a29961070458f4555 100644
+--- a/omni_base_controller_configuration/config/imu_sensor_broadcaster.yaml
++++ b/omni_base_controller_configuration/config/imu_sensor_broadcaster.yaml
+@@ -1,4 +1,4 @@
+-imu_sensor_broadcaster:
++/**/imu_sensor_broadcaster:
+   ros__parameters:
+     sensor_name: "base_imu_sensor"
+     frame_id: "base_imu_link"
+diff --git a/omni_base_controller_configuration/config/joint_state_broadcaster.yaml b/omni_base_controller_configuration/config/joint_state_broadcaster.yaml
+index 78af84eeb4542a97ba3494d1b2f9839ca97cf546..01788e96e40868e48e6992ad9951ae5607b7f4a4 100644
+--- a/omni_base_controller_configuration/config/joint_state_broadcaster.yaml
++++ b/omni_base_controller_configuration/config/joint_state_broadcaster.yaml
+@@ -1,4 +1,4 @@
+-joint_state_broadcaster:
++/**/joint_state_broadcaster:
+   ros__parameters:
+     type: joint_state_broadcaster/JointStateBroadcaster
+     publish_rate: 50.0
+diff --git a/omni_base_controller_configuration/config/mobile_base_controller.yaml b/omni_base_controller_configuration/config/mobile_base_controller.yaml
+index c62b80d3e48377f0350cf77b5237ec3ee0171cfe..d8ced380837931a7f3b404518231fc911758fac4 100644
+--- a/omni_base_controller_configuration/config/mobile_base_controller.yaml
++++ b/omni_base_controller_configuration/config/mobile_base_controller.yaml
+@@ -1,79 +1,34 @@
+-mobile_base_controller:
++/**/mobile_base_controller:
+   ros__parameters:
+-    type: omni_drive_controller/OmniDriveController
+-    use_stamped_vel: False
+-    left_front_wheel  : 'wheel_front_left_joint'
+-    left_back_wheel  : 'wheel_rear_left_joint'
+-    right_front_wheel : 'wheel_front_right_joint'
+-    right_back_wheel : 'wheel_rear_right_joint'
+-
+-    # In ROS1 these physical properties were parsed from the URDF
+-    wheel_radius: 0.0762
+-    wheel_separation: 0.44715
+-    axis_separation: 0.488
+-
+-    # @TODO: if wheel odometry is calibrated; these parameters should be in a separate yaml
+-    wheel_separation_multiplier: 1.0
+-    wheel_radius_multiplier: 1.0
+-    axis_separation_multiplier: 1.0
+-
+-    # The params below were used in ROS1 but not yet in ROS2
+-
+-    publish_rate: 50.0
+-    pose_covariance_diagonal : [0.001, 0.001, 0.001, 0.001, 0.001, 0.01]
+-    twist_covariance_diagonal: [0.001, 0.001, 0.001, 0.001, 0.001, 0.01]
+-
+-    # Velocity commands timeout [s]
+-    cmd_vel_timeout: 0.25
+-
+-    # Base frame_id
++    type: mecanum_drive_controller/MecanumDriveController
++    reference_timeout: 0.25
++    front_left_wheel_command_joint_name: wheel_front_left_joint
++    front_right_wheel_command_joint_name: wheel_front_right_joint
++    rear_left_wheel_command_joint_name: wheel_rear_left_joint
++    rear_right_wheel_command_joint_name: wheel_rear_right_joint
++    kinematics:
++      wheels_radius: 0.0762
++      sum_of_robot_center_projection_on_X_Y_axis: 0.467575
+     base_frame_id: base_footprint
+-
+-    # odom tf will be published by direct laser odometry
+-    enable_odom_tf: false
+-
+-    # Odom frame_id
+     odom_frame_id: odom
+-
+-    # Publish limited velocity
+-    publish_limited_velocity: true
+-
+-    # Velocity and acceleration limits
+-    # Whenever a min_* is unspecified, default to -max_*
++    tf_frame_prefix_enable: false
++    enable_odom_tf: true
++    pose_covariance_diagonal: [0.001, 0.001, 0.001, 0.001, 0.001, 0.01]
++    twist_covariance_diagonal: [0.001, 0.001, 0.001, 0.001, 0.001, 0.01]
+     linear:
+       x:
+-        has_velocity_limits    : true
+-        max_velocity           :  1.0 # m/s
+-        min_velocity           : -1.0 # m/s
+-        has_acceleration_limits: true
+-        max_acceleration       :  1.0 # m/s^2
+-        min_acceleration       :  -1.0 # m/s^2
+-        has_jerk_limits        : false
+-        max_jerk               :  5.0 # m/s^3
++        max_velocity: 1.0
++        min_velocity: -1.0
++        max_acceleration: 1.0
++        max_deceleration: -1.0
+       y:
+-        has_velocity_limits    : true
+-        max_velocity           :  1.0 # m/s
+-        min_velocity           : -1.0 # m/s
+-        has_acceleration_limits: true
+-        max_acceleration       :  1.0 # m/s^2
+-        min_acceleration       :  -1.0 # m/s^2
+-        has_jerk_limits        : false
+-        max_jerk               :  5.0 # m/s^3
++        max_velocity: 1.0
++        min_velocity: -1.0
++        max_acceleration: 1.0
++        max_deceleration: -1.0
+     angular:
+       z:
+-        has_velocity_limits    : true
+-        max_velocity           : 2.09 # 120.0º reduce pendulum effect
+-        has_acceleration_limits: true
+-        max_acceleration       : 2.09 # 120.0º/s^2
+-        min_acceleration       : -2.09 # 120.0º/s^2
+-        has_jerk_limits        : false
+-        max_jerk               : 10.47 # 600.0º/s^3
+-    space:
+-      xy:
+-        max_velocity           : 0.7
+-      xz:
+-        max_velocity           : 0.5
+-      yz:
+-        max_velocity           : 0.5
+-      xyz:
+-        max_velocity           : 0.4
++        max_velocity: 2.09
++        min_velocity: -2.09
++        max_acceleration: 2.09
++        max_deceleration: -2.09
+diff --git a/omni_base_controller_configuration/launch/default_controllers.launch.py b/omni_base_controller_configuration/launch/default_controllers.launch.py
+index d29b0d8e1948f7612b9b102f6f017dfd7223b7a4..60ba0b501aad142abc28f6b189c48837b09fdfaa 100644
+--- a/omni_base_controller_configuration/launch/default_controllers.launch.py
++++ b/omni_base_controller_configuration/launch/default_controllers.launch.py
+@@ -18,11 +18,12 @@ import os
+ from ament_index_python.packages import get_package_share_directory
+ from controller_manager.launch_utils import generate_load_controller_launch_description
+ from launch import LaunchDescription
+-from launch.actions import DeclareLaunchArgument, GroupAction
++from launch.actions import DeclareLaunchArgument
++from launch.actions import GroupAction
+ from launch.conditions import UnlessCondition
+ from launch.substitutions import LaunchConfiguration
+-from launch_pal.robot_arguments import CommonArgs
+ from launch_pal.arg_utils import LaunchArgumentsBase
++from launch_pal.robot_arguments import CommonArgs
+ 
+ 
+ @dataclass(frozen=True)
+@@ -43,9 +44,7 @@ def generate_launch_description():
+     return ld
+ 
+ 
+-def declare_actions(
+-    launch_description: LaunchDescription, launch_args: LaunchArguments
+-):
++def declare_actions(launch_description: LaunchDescription, launch_args: LaunchArguments):
+     pkg_share_folder = get_package_share_directory('omni_base_controller_configuration')
+ 
+     # Base controller
+@@ -53,12 +52,12 @@ def declare_actions(
+         [
+             generate_load_controller_launch_description(
+                 controller_name='mobile_base_controller',
+-                controller_type='omni_drive_controller/OmniDriveController',
+                 controller_params_file=os.path.join(
+-                    pkg_share_folder, 'config', 'mobile_base_controller.yaml')
++                    pkg_share_folder, 'config', 'mobile_base_controller.yaml'
++                ),
+             )
+         ],
+-        condition=UnlessCondition(LaunchConfiguration('is_public_sim'))
++        condition=UnlessCondition(LaunchConfiguration('is_public_sim')),
+     )
+     launch_description.add_action(base_controller)
+ 
+@@ -67,9 +66,10 @@ def declare_actions(
+         [
+             generate_load_controller_launch_description(
+                 controller_name='joint_state_broadcaster',
+-                controller_type='joint_state_broadcaster/JointStateBroadcaster',
+                 controller_params_file=os.path.join(
+-                    pkg_share_folder, 'config', 'joint_state_broadcaster.yaml'))
++                    pkg_share_folder, 'config', 'joint_state_broadcaster.yaml'
++                ),
++            )
+         ],
+     )
+     launch_description.add_action(joint_state_broadcaster)
+@@ -79,10 +79,10 @@ def declare_actions(
+         [
+             generate_load_controller_launch_description(
+                 controller_name='imu_sensor_broadcaster',
+-                controller_type='imu_sensor_broadcaster/IMUSensorBroadcaster',
+                 controller_params_file=os.path.join(
+-                    pkg_share_folder, 'config', 'imu_sensor_broadcaster.yaml'))
+-
++                    pkg_share_folder, 'config', 'imu_sensor_broadcaster.yaml'
++                ),
++            )
+         ],
+     )
+     launch_description.add_action(imu_sensor_broadcaster)
+diff --git a/omni_base_controller_configuration/package.xml b/omni_base_controller_configuration/package.xml
+index c689dacf3e56de9726c66b8dcde1a38e955d2f46..4da175e993198d043299b74165a0c975ce294509 100644
+--- a/omni_base_controller_configuration/package.xml
++++ b/omni_base_controller_configuration/package.xml
+@@ -9,6 +9,7 @@
+   <license>Apache License 2.0</license>
+ 
+   <buildtool_depend>ament_cmake_auto</buildtool_depend>
++  <exec_depend>mecanum_drive_controller</exec_depend>
+ 
+   <build_depend condition="$PAL_DISTRO >= alum">pal_module_cmake</build_depend>
+ 
+diff --git a/omni_base_description/launch/robot_state_publisher.launch.py b/omni_base_description/launch/robot_state_publisher.launch.py
+index a18c270899a65b6aeb406b153c20962e87208b88..ad6cb1b3c13321c9b3c2dbb77db7332ebe892680 100644
+--- a/omni_base_description/launch/robot_state_publisher.launch.py
++++ b/omni_base_description/launch/robot_state_publisher.launch.py
+@@ -18,15 +18,17 @@ from pathlib import Path
+ 
+ from ament_index_python.packages import get_package_share_directory
+ from launch import LaunchDescription
+-from launch.actions import DeclareLaunchArgument, OpaqueFunction, SetLaunchConfiguration
++from launch.actions import DeclareLaunchArgument
++from launch.actions import OpaqueFunction
++from launch.actions import SetLaunchConfiguration
+ from launch.substitutions import LaunchConfiguration
+-from launch_pal.robot_arguments import CommonArgs
+ from launch_pal.arg_utils import LaunchArgumentsBase
+ from launch_pal.arg_utils import read_launch_argument
+-from omni_base_description.launch_arguments import OmniBaseArgs
++from launch_pal.robot_arguments import CommonArgs
+ from launch_param_builder import load_xacro
+ from launch_ros.actions import Node
+ from launch_ros.parameter_descriptions import ParameterValue
++from omni_base_description.launch_arguments import OmniBaseArgs
+ 
+ 
+ @dataclass(frozen=True)
+@@ -51,12 +53,8 @@ def generate_launch_description():
+     return ld
+ 
+ 
+-def declare_actions(
+-    launch_description: LaunchDescription, launch_args: LaunchArguments
+-):
+-    launch_description.add_action(
+-        OpaqueFunction(function=create_robot_description_param)
+-    )
++def declare_actions(launch_description: LaunchDescription, launch_args: LaunchArguments):
++    launch_description.add_action(OpaqueFunction(function=create_robot_description_param))
+ 
+     # Using ParameterValue is needed so ROS knows the parameter type
+     # Otherwise https://github.com/ros2/launch_ros/issues/136
+diff --git a/omni_base_description/launch/show.launch.py b/omni_base_description/launch/show.launch.py
+index e504caab4cf09af93567743cdb903e3a1c460bda..d6cc6db87e326d4435124e98197a3d048cee9e3d 100644
+--- a/omni_base_description/launch/show.launch.py
++++ b/omni_base_description/launch/show.launch.py
+@@ -16,13 +16,14 @@ from dataclasses import dataclass
+ 
+ from launch import LaunchDescription
+ from launch.actions import DeclareLaunchArgument
+-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+-from launch_pal.robot_arguments import CommonArgs
++from launch.substitutions import LaunchConfiguration
++from launch.substitutions import PathJoinSubstitution
+ from launch_pal.arg_utils import LaunchArgumentsBase
+ from launch_pal.include_utils import include_scoped_launch_py_description
+-from omni_base_description.launch_arguments import OmniBaseArgs
++from launch_pal.robot_arguments import CommonArgs
+ from launch_ros.actions import Node
+ from launch_ros.substitutions import FindPackageShare
++from omni_base_description.launch_arguments import OmniBaseArgs
+ 
+ 
+ @dataclass(frozen=True)
+@@ -47,9 +48,7 @@ def generate_launch_description():
+     return ld
+ 
+ 
+-def declare_actions(
+-    launch_description: LaunchDescription, launch_args: LaunchArguments
+-):
++def declare_actions(launch_description: LaunchDescription, launch_args: LaunchArguments):
+     robot_state_publisher = include_scoped_launch_py_description(
+         pkg_name='omni_base_description',
+         paths=['launch', 'robot_state_publisher.launch.py'],
+diff --git a/omni_base_description/omni_base_description/launch_arguments.py b/omni_base_description/omni_base_description/launch_arguments.py
+index 724358630c3be7bae2e7a95cdeec8b520009bfbb..1feb210edbcbe2fcabb71931827e54877ca7fb35 100644
+--- a/omni_base_description/omni_base_description/launch_arguments.py
++++ b/omni_base_description/omni_base_description/launch_arguments.py
+@@ -14,9 +14,10 @@
+ 
+ 
+ from dataclasses import dataclass
++
++from ament_index_python.packages import get_package_share_directory
+ from launch.actions import DeclareLaunchArgument as DLA
+ from launch_pal.arg_utils import parse_launch_args_from_yaml
+-from ament_index_python.packages import get_package_share_directory
+ 
+ 
+ @dataclass(frozen=True)
+@@ -24,9 +25,10 @@ class OmniBaseArgs:
+     """This dataclass contains launch arguments for Omni Base."""
+ 
+     __robot_name = 'omni_base'
+-    __pkg_dir = get_package_share_directory(f"{__robot_name}_description")
++    __pkg_dir = get_package_share_directory(f'{__robot_name}_description')
+     __arg_creator = parse_launch_args_from_yaml(
+-        f"{__pkg_dir}/config/{__robot_name}_configuration.yaml")
++        f'{__pkg_dir}/config/{__robot_name}_configuration.yaml'
++    )
+ 
+     laser_model: DLA = __arg_creator.get_argument('laser_model')
+     wheel_model: DLA = __arg_creator.get_argument('wheel_model')
+diff --git a/omni_base_description/package.xml b/omni_base_description/package.xml
+index d15f648252a7ef17f7267d6c7219f07010a52be9..a321c4e25d4ac80770d154fdc8eb3fbf61a17fc6 100644
+--- a/omni_base_description/package.xml
++++ b/omni_base_description/package.xml
+@@ -21,7 +21,6 @@
+   <exec_depend>launch_ros</exec_depend>
+   <exec_depend>launch_pal</exec_depend>
+   <exec_depend>rviz2</exec_depend>
+-  <exec_depend>gazebo_planar_move_plugin</exec_depend>
+   <exec_depend>joint_state_publisher_gui</exec_depend>
+   <exec_depend>launch_param_builder</exec_depend>
+   <exec_depend>pal_urdf_utils</exec_depend>
+diff --git a/omni_base_description/ros2_control/gazebo_controller_manager_cfg.yaml b/omni_base_description/ros2_control/gazebo_controller_manager_cfg.yaml
+index 8d1066c3978009cb69b3ad59f020d1a95c15cbd6..1ef43506c7a335aac1af4f1be130df79107ee43e 100644
+--- a/omni_base_description/ros2_control/gazebo_controller_manager_cfg.yaml
++++ b/omni_base_description/ros2_control/gazebo_controller_manager_cfg.yaml
+@@ -1,4 +1,4 @@
+-controller_manager:
++/**/controller_manager:
+   ros__parameters:
+     update_rate: 100 # Hz
+     use_sim_time: true
+diff --git a/omni_base_description/test/test_description.launch.py b/omni_base_description/test/test_description.launch.py
+index e21d8a68de39199ec5a6768160dd4dad88e1fb4e..43027fce2c87df1d846c407bea11f55bc15a9bd0 100644
+--- a/omni_base_description/test/test_description.launch.py
++++ b/omni_base_description/test/test_description.launch.py
+@@ -13,8 +13,9 @@
+ # limitations under the License.
+ 
+ from launch_pal.include_utils import include_launch_py_description
+-from urdf_test.description_test import (generate_urdf_test_description,
+-                                        TestDescriptionPublished, TestSuccessfulExit)
++from urdf_test.description_test import generate_urdf_test_description
++from urdf_test.description_test import TestDescriptionPublished
++from urdf_test.description_test import TestSuccessfulExit
+ 
+ # Ignore unused import warnings for the Test Classes
+ __all__ = ('TestDescriptionPublished', 'TestSuccessfulExit')
+@@ -23,5 +24,6 @@ __all__ = ('TestDescriptionPublished', 'TestSuccessfulExit')
+ def generate_test_description():
+     return generate_urdf_test_description(
+         include_launch_py_description(
+-            'omni_base_description', ['launch', 'robot_state_publisher.launch.py']),
++            'omni_base_description', ['launch', 'robot_state_publisher.launch.py']
++        ),
+     )
+diff --git a/omni_base_description/urdf/base/base.gazebo.xacro b/omni_base_description/urdf/base/base.gazebo.xacro
+index 029229dda2aad4ae90bbaf4e940c100cc5914e10..24a09799fb207db59c98f517a83fc5c881d50e1c 100644
+--- a/omni_base_description/urdf/base/base.gazebo.xacro
++++ b/omni_base_description/urdf/base/base.gazebo.xacro
+@@ -32,37 +32,11 @@
+       <mu1>0.1</mu1>
+       <mu2>0.1</mu2>
+       <fdir1>1 0 0</fdir1>
+-      <maxVel>10.0</maxVel>
+-      <minDepth>0.0005</minDepth>
+       <laserRetro>0</laserRetro>
+     </gazebo>
+ 
+-    <!-- Odometry plugin for ground truth -->
+-    <gazebo>   
+-      <plugin name="gazebo_ros_planar_move" filename="libgazebo_ros_planar_move.so">
+-        <ros>
+-          <remapping>cmd_vel:=mobile_base_controller/cmd_vel_unstamped</remapping>
+-          <remapping>odom:=mobile_base_controller/odom</remapping>
+-        </ros>
+-        <update_rate>100</update_rate>
+-        <publish_rate>1000</publish_rate>
+-        <publish_odom>true</publish_odom>
+-        <xacro:if value="${is_public_sim}">
+-          <publish_odom_tf>true</publish_odom_tf>
+-        </xacro:if>
+-        <xacro:unless value="${is_public_sim}">
+-          <publish_odom_tf>false</publish_odom_tf>
+-        </xacro:unless>
+-          <xacro:if value="${is_multiple}">
+-            <namespace>/${nsp}</namespace>
+-          </xacro:if>
+-        <odometry_frame>odom</odometry_frame>
+-        <robot_base_frame>base_footprint</robot_base_frame>
+-        <covariance_x>0.0001</covariance_x>
+-        <covariance_y>0.0001</covariance_y>
+-        <covariance_yaw>0.01</covariance_yaw>
+-      </plugin>
+-    </gazebo>
++    <!-- Odometry and planar motion are provided by the Harmonic
++         omni_drive_controller through gz_ros2_control. -->
+ 
+   </xacro:macro>
+ 
+diff --git a/omni_base_description/urdf/sensors/hokuyo_urg_04lx_ug01_laser.gazebo.xacro b/omni_base_description/urdf/sensors/hokuyo_urg_04lx_ug01_laser.gazebo.xacro
+index c25564efa3f7dd2332f8020d5598ae9483254c19..dcc017638b3e0e7685239b46ef5caf052314c5b9 100644
+--- a/omni_base_description/urdf/sensors/hokuyo_urg_04lx_ug01_laser.gazebo.xacro
++++ b/omni_base_description/urdf/sensors/hokuyo_urg_04lx_ug01_laser.gazebo.xacro
+@@ -23,7 +23,7 @@
+         <pose>0 0 0 0 0 0</pose>
+         <update_rate>${update_rate}</update_rate>
+         <visualize>true</visualize>
+-        <topic>${ros_topic}</topic>
++        <topic>${namespace + '/' if namespace else ''}${ros_topic}</topic>
+         <gz_frame_id>${name}_link</gz_frame_id>
+         <lidar>
+           <scan>
+diff --git a/omni_base_description/urdf/sensors/imu.gazebo.xacro b/omni_base_description/urdf/sensors/imu.gazebo.xacro
+index fd9399342b33d4eb70576b91d9df5e6a06d41696..e7fbe8a1fe6934deb4873ffa01522baa02500a23 100644
+--- a/omni_base_description/urdf/sensors/imu.gazebo.xacro
++++ b/omni_base_description/urdf/sensors/imu.gazebo.xacro
+@@ -21,26 +21,64 @@
+   <xacro:macro name="imu_gazebo" params="name update_rate">
+ 
+     <gazebo reference="${name}_link">
+-      <sensor name="${name}_sensor" type="imu">
++      <sensor name="${namespace.strip('/').replace('/', '__') + '__' if namespace else ''}${name}_sensor" type="imu">
+         <always_on>1</always_on>
+         <update_rate>${update_rate}</update_rate>
+-        <topic>base_imu</topic>
++        <topic>${namespace + '/' if namespace else ''}base_imu</topic>
++        <gz_frame_id>${name}_link</gz_frame_id>
+         <imu>
+-          <noise>
+-            <type>gaussian</type>
+-            <rate>
+-              <mean>0.0</mean>
+-              <stddev>2e-4</stddev>
+-              <bias_mean>0.0000075</bias_mean>
+-              <bias_stddev>0.0000008</bias_stddev>
+-            </rate>
+-            <accel>
+-              <mean>0.0</mean>
+-              <stddev>1.7e-2</stddev>
+-              <bias_mean>0.1</bias_mean>
+-              <bias_stddev>0.001</bias_stddev>
+-            </accel>
+-          </noise>
++          <angular_velocity>
++            <x>
++              <noise type="gaussian">
++                <mean>0</mean>
++                <stddev>.0002</stddev>
++                <bias_mean>.0000075</bias_mean>
++                <bias_stddev>.0000008</bias_stddev>
++              </noise>
++            </x>
++            <y>
++              <noise type="gaussian">
++                <mean>0</mean>
++                <stddev>.0002</stddev>
++                <bias_mean>.0000075</bias_mean>
++                <bias_stddev>.0000008</bias_stddev>
++              </noise>
++            </y>
++            <z>
++              <noise type="gaussian">
++                <mean>0</mean>
++                <stddev>.0002</stddev>
++                <bias_mean>.0000075</bias_mean>
++                <bias_stddev>.0000008</bias_stddev>
++              </noise>
++            </z>
++          </angular_velocity>
++          <linear_acceleration>
++            <x>
++              <noise type="gaussian">
++                <mean>0</mean>
++                <stddev>.017</stddev>
++                <bias_mean>.1</bias_mean>
++                <bias_stddev>.001</bias_stddev>
++              </noise>
++            </x>
++            <y>
++              <noise type="gaussian">
++                <mean>0</mean>
++                <stddev>.017</stddev>
++                <bias_mean>.1</bias_mean>
++                <bias_stddev>.001</bias_stddev>
++              </noise>
++            </y>
++            <z>
++              <noise type="gaussian">
++                <mean>0</mean>
++                <stddev>.017</stddev>
++                <bias_mean>.1</bias_mean>
++                <bias_stddev>.001</bias_stddev>
++              </noise>
++            </z>
++          </linear_acceleration>
+         </imu>
+       </sensor>
+     </gazebo>
+diff --git a/omni_base_description/urdf/sensors/sensors.ros2_control.xacro b/omni_base_description/urdf/sensors/sensors.ros2_control.xacro
+index e46d26cf0b2f4da1a4976b8773cd6c5cf23414fa..6a504cb1f7bb81f45b49d1a00c90580a1a2bfd3e 100644
+--- a/omni_base_description/urdf/sensors/sensors.ros2_control.xacro
++++ b/omni_base_description/urdf/sensors/sensors.ros2_control.xacro
+@@ -18,7 +18,7 @@
+ 
+   <!-- MACRO DEFINITION -->
+   <xacro:macro name="ros2_control_imu" params="name">
+-    <sensor name="${name}">
++    <sensor name="${namespace.strip('/').replace('/', '__') + '__' if namespace else ''}${name}">
+       <state_interface name="orientation.x"/>
+       <state_interface name="orientation.y"/>
+       <state_interface name="orientation.z"/>
+diff --git a/omni_base_description/urdf/sensors/sick_tim551_laser.gazebo.xacro b/omni_base_description/urdf/sensors/sick_tim551_laser.gazebo.xacro
+index b4d53418368fbbc6827b3a167ad96555e34eee50..0c5e76c407c84ee5391170f2ee8497d45684572f 100644
+--- a/omni_base_description/urdf/sensors/sick_tim551_laser.gazebo.xacro
++++ b/omni_base_description/urdf/sensors/sick_tim551_laser.gazebo.xacro
+@@ -23,7 +23,7 @@
+         <pose>0 0 0 0 0 0</pose>
+         <update_rate>${update_rate}</update_rate>
+         <visualize>true</visualize>
+-        <topic>${ros_topic}</topic>
++        <topic>${namespace + '/' if namespace else ''}${ros_topic}</topic>
+         <gz_frame_id>${name}_link</gz_frame_id>
+         <lidar>
+           <scan>
+diff --git a/omni_base_description/urdf/sensors/sick_tim561_laser.gazebo.xacro b/omni_base_description/urdf/sensors/sick_tim561_laser.gazebo.xacro
+index 06670c6ce3f33e892937d00ad41a26583bd90b36..caa83b6dc1726cf7f98b18be626126076c63572b 100644
+--- a/omni_base_description/urdf/sensors/sick_tim561_laser.gazebo.xacro
++++ b/omni_base_description/urdf/sensors/sick_tim561_laser.gazebo.xacro
+@@ -23,7 +23,7 @@
+         <pose>0 0 0 0 0 0</pose>
+         <update_rate>${update_rate}</update_rate>
+         <visualize>true</visualize>
+-        <topic>${ros_topic}</topic>
++        <topic>${namespace + '/' if namespace else ''}${ros_topic}</topic>
+         <gz_frame_id>${name}_link</gz_frame_id>
+         <lidar>
+           <scan>
+@@ -45,7 +45,7 @@
+             <mean>0.0</mean>
+             <stddev>0.01</stddev>
+           </noise>
+-        </ray>
++        </lidar>
+       </sensor>
+       <material>Gazebo/DarkGrey</material>
+     </gazebo>
+diff --git a/omni_base_description/urdf/sensors/sick_tim571_laser.gazebo.xacro b/omni_base_description/urdf/sensors/sick_tim571_laser.gazebo.xacro
+index bef9913db82b62399905b8fa6026c580c1821318..94e70442631461e7ece4b486804a7a02e485f323 100644
+--- a/omni_base_description/urdf/sensors/sick_tim571_laser.gazebo.xacro
++++ b/omni_base_description/urdf/sensors/sick_tim571_laser.gazebo.xacro
+@@ -23,7 +23,7 @@
+         <pose>0 0 0 0 0 0</pose>
+         <update_rate>${update_rate}</update_rate>
+         <visualize>true</visualize>
+-        <topic>${ros_topic}</topic>
++        <topic>${namespace + '/' if namespace else ''}${ros_topic}</topic>
+         <gz_frame_id>${name}_link</gz_frame_id>
+         <lidar>
+           <scan>
+diff --git a/omni_base_description/urdf/wheels/wheel.gazebo.xacro b/omni_base_description/urdf/wheels/wheel.gazebo.xacro
+index 1d9304d3907253672af1b0494968409a2e8c537d..bb680137b25c637f87a3ea27b722705761075264 100644
+--- a/omni_base_description/urdf/wheels/wheel.gazebo.xacro
++++ b/omni_base_description/urdf/wheels/wheel.gazebo.xacro
+@@ -24,8 +24,6 @@
+       <mu1>0.0</mu1>
+       <mu2>0.0</mu2>
+       <fdir1>1 0 0</fdir1>
+-      <maxVel>1.0</maxVel>
+-      <minDepth>0.00</minDepth>
+       <implicitSpringDamper>1</implicitSpringDamper>
+       <material>Gazebo/Grey</material>
+     </gazebo>
+diff --git a/omni_base_description/urdf/wheels/wheel.ros2_control.xacro b/omni_base_description/urdf/wheels/wheel.ros2_control.xacro
+index 783d50309ad91a37aafddb2cb01ca46377885eac..1146e5fdb1f988da748b7bd4691e32d3ba72ecd1 100644
+--- a/omni_base_description/urdf/wheels/wheel.ros2_control.xacro
++++ b/omni_base_description/urdf/wheels/wheel.ros2_control.xacro
+@@ -24,6 +24,7 @@
+         <param name="max">1</param>
+       </command_interface>
+       <state_interface name="position" />
++      <state_interface name="velocity" />
+     </joint>
+ 
+     <transmission name="wheel_${side}_trans">

@@ -1,0 +1,504 @@
+diff --git a/tiago_2dnav/launch/tiago_nav_bringup.launch.py b/tiago_2dnav/launch/tiago_nav_bringup.launch.py
+index b5b108e2a29c86ff02744c24e5c93cad13679a91..2ec75222b3e8e2e0fa07d5e96fe8e9a8b2adf866 100644
+--- a/tiago_2dnav/launch/tiago_nav_bringup.launch.py
++++ b/tiago_2dnav/launch/tiago_nav_bringup.launch.py
+@@ -12,209 +12,197 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
+-import os
+-from ament_index_python.packages import get_package_share_directory
++import atexit
++import copy
++from pathlib import Path
++import tempfile
+ 
++from ament_index_python.packages import get_package_share_directory
+ from launch import LaunchDescription
+-from launch.actions import (
+-    DeclareLaunchArgument,
+-    OpaqueFunction,
+-)
+-
+-from launch_pal.robot_arguments import CommonArgs
+-from launch_pal.arg_utils import LaunchArgumentsBase
+-from dataclasses import dataclass
+-from tiago_description.launch_arguments import TiagoArgs
+-from launch_pal.include_utils import include_scoped_launch_py_description
+-from launch_pal.arg_utils import read_launch_argument
+-from launch.conditions import IfCondition, UnlessCondition
++from launch.actions import DeclareLaunchArgument
++from launch.actions import GroupAction
++from launch.actions import OpaqueFunction
++from launch.conditions import IfCondition
++from launch.event_handlers import OnProcessStart
++from launch.event_handlers import OnShutdown
+ from launch.substitutions import LaunchConfiguration
+-from launch_ros.actions import Node, SetRemap
+-
+-
+-@dataclass(frozen=True)
+-class LaunchArguments(LaunchArgumentsBase):
+-
+-    is_public_sim: DeclareLaunchArgument = CommonArgs.is_public_sim
+-    world_name: DeclareLaunchArgument = CommonArgs.world_name
+-    base_type: DeclareLaunchArgument = TiagoArgs.base_type
+-    slam: DeclareLaunchArgument = CommonArgs.slam
+-
+-
+-def generate_launch_description():
+-
+-    # Create the launch description and populate
+-    ld = LaunchDescription()
+-    launch_arguments = LaunchArguments()
+-
+-    launch_arguments.add_to_launch_description(ld)
+-
+-    declare_actions(ld, launch_arguments)
+-
+-    return ld
+-
+-
+-def public_nav_function(context, *args, **kwargs):
+-    base_type = read_launch_argument("base_type", context)
+-    world_name = read_launch_argument("world_name", context)
+-    actions = []
+-    tiago_2dnav = get_package_share_directory("tiago_2dnav")
+-    param_file = os.path.join(tiago_2dnav, "params", "tiago_" + base_type + "_nav_public_sim.yaml")
+-
+-    pal_maps = get_package_share_directory("pal_maps")
+-
+-    map_path = os.path.join(pal_maps, "maps", world_name, "map.yaml")
+-    rviz_config_file = os.path.join(tiago_2dnav, "config", "rviz", "navigation.rviz")
+-
+-    nav_bringup_launch = include_scoped_launch_py_description(
+-        pkg_name="nav2_bringup",
+-        paths=['launch', "navigation_launch.py"],
+-        launch_arguments={
+-            "params_file": param_file,
+-            "use_sim_time": "True"
+-        }
++from launch_pal.include_utils import include_scoped_launch_py_description
++from launch_pal.include_utils import isolate_ros_remaps
++from launch_ros.actions import Node
++from launch_ros.actions import SetRemap
++import yaml
++
++
++def stop_navigation(context, namespace, ros_context, node, executor, clients):
++    """Deactivate and clean up Nav2 while its executors and sensor TF are live."""
++    from nav2_msgs.srv import ManageLifecycleNodes
++    try:
++        for manager, client in clients.items():
++            if not client.wait_for_service(timeout_sec=3.0):
++                node.destroy_client(client)
++                if manager == 'navigation':
++                    raise RuntimeError('Nav2 navigation shutdown service is unavailable')
++                continue
++            request = ManageLifecycleNodes.Request()
++            request.command = ManageLifecycleNodes.Request.SHUTDOWN
++            future = client.call_async(request)
++            executor.spin_until_future_complete(future, timeout_sec=15.0)
++            if future.result() is not None and future.result().success:
++                print(f'Nav2 {manager} shutdown complete for {namespace or "/"}', flush=True)
++            else:
++                raise RuntimeError(f'Nav2 {manager} shutdown failed for {namespace or "/"}')
++            node.destroy_client(client)
++    finally:
++        executor.remove_node(node)
++        executor.shutdown()
++        node.destroy_node()
++        ros_context.shutdown()
++
++
++def register_orderly_shutdown(context, namespace, mapping):
++    """Keep lifecycle cleanup ahead of launch's process signal handlers."""
++    import rclpy
++    from nav2_msgs.srv import ManageLifecycleNodes
++    from rclpy.context import Context
++    from rclpy.executors import SingleThreadedExecutor
++    from rclpy.signals import SignalHandlerOptions
++
++    # Create the clients at startup so request AND reply discovery has settled
++    # before shutdown. Creating fresh clients during teardown races Fast DDS
++    # service discovery (ros2/rmw_fastrtps#842).
++    ros_context = Context()
++    rclpy.init(args=[], context=ros_context, signal_handler_options=SignalHandlerOptions.NO)
++    node = rclpy.create_node(
++        'tiago_navigation_shutdown', namespace=namespace or '/', context=ros_context
+     )
+-
+-    slam_bringup_launch = include_scoped_launch_py_description(
+-        pkg_name="nav2_bringup",
+-        paths=["launch", "slam_launch.py"],
+-        launch_arguments={
+-            "params_file": param_file,
+-            "use_sim_time": "True"
+-        },
+-        condition=IfCondition(LaunchConfiguration("slam")),
+-
++    executor = SingleThreadedExecutor(context=ros_context)
++    executor.add_node(node)
++    clients = {
++        manager: node.create_client(ManageLifecycleNodes,
++                                    f'lifecycle_manager_{manager}/manage_nodes')
++        for manager in ('navigation', 'slam' if mapping else 'localization')
++    }
++    shutdown = OnShutdown(
++        on_shutdown=[OpaqueFunction(function=stop_navigation, kwargs={
++            'namespace': namespace, 'ros_context': ros_context, 'node': node,
++            'executor': executor, 'clients': clients})]
+     )
++    context.register_event_handler(shutdown)
+ 
+-    loc_bringup_launch = include_scoped_launch_py_description(
+-        pkg_name="nav2_bringup",
+-        paths=["launch", "localization_launch.py"],
+-        launch_arguments={
+-            "params_file": param_file,
+-            "map": map_path,
+-            "use_sim_time": "True"
+-        },
+-        condition=UnlessCondition(LaunchConfiguration("slam")),
+-    )
+-    rviz_bringup_launch = include_scoped_launch_py_description(
+-        pkg_name="nav2_bringup",
+-        paths=["launch", "rviz_launch.py"],
+-        launch_arguments={
+-            "rviz": rviz_config_file
+-        },
+-    )
++    def promote_cleanup(context):
++        # Process handlers are prepended as each executable starts. Promote
++        # cleanup afterward so it stays first even for late-started children.
++        context.unregister_event_handler(shutdown)
++        context.register_event_handler(shutdown)
+ 
+-    twist_stamper = Node(
+-        package="twist_stamper",
+-        executable="twist_stamper",
+-        name="twist_stamper_nav",
+-        output="screen",
+-        parameters = [
+-            {
+-                'frame_id': 'base_footprint',
+-                'use_sim_time': True,
+-            }
+-        ],
+-        remappings=[
+-            ('cmd_vel_in', '/cmd_vel_nav'),
+-            ('cmd_vel_out', '/mobile_base_controller/cmd_vel')
+-        ],
++    context.register_event_handler(
++        OnProcessStart(on_start=[OpaqueFunction(function=promote_cleanup)])
+     )
+ 
+-    actions.append(nav_bringup_launch)
+-    actions.append(slam_bringup_launch)
+-    actions.append(loc_bringup_launch)
+-    actions.append(rviz_bringup_launch)
+-    actions.append(twist_stamper)
+-
+-    return actions
+-
+-
+-def private_nav_function(context, *args, **kwargs):
+-    base_type = read_launch_argument("base_type", context)
+-    actions = []
+-    tiago_2dnav = get_package_share_directory("tiago_2dnav")
+ 
+-    remappings_file = os.path.join(
+-        tiago_2dnav, "params", "tiago_" + base_type + "_remappings_sim.yaml")
+-
+-    nav_bringup_launch = include_scoped_launch_py_description(
+-        pkg_name="pal_nav2_bringup",
+-        paths=['launch', "nav_bringup.launch.py"],
+-        launch_arguments={
+-            "params_pkg": "tiago_2dnav",
+-            "params_file": "tiago_" + base_type + "_nav.yaml",
+-            "robot_name": "tiago",
+-            "remappings_file": remappings_file,
+-        })
+-    slam_bringup_launch = include_scoped_launch_py_description(
+-        pkg_name="pal_nav2_bringup",
+-        paths=["launch", "nav_bringup.launch.py"],
+-        launch_arguments={
+-            "params_pkg": "tiago_2dnav",
+-            "params_file": "tiago_slam.yaml",
+-            "robot_name": "tiago",
+-            "remappings_file": remappings_file,
+-        },
+-        condition=IfCondition(LaunchConfiguration("slam"))
+-    )
+-
+-    loc_bringup_launch = include_scoped_launch_py_description(
+-        pkg_name="pal_nav2_bringup",
+-        paths=["launch", "nav_bringup.launch.py"],
+-        launch_arguments={
+-            "params_pkg": "tiago_2dnav",
+-            "params_file": "tiago_" + base_type + "_loc.yaml",
+-            "robot_name": "tiago",
+-            "remappings_file": remappings_file,
+-        },
+-        condition=UnlessCondition(LaunchConfiguration("slam"))
++def public_navigation(context):
++    base = LaunchConfiguration('base_type').perform(context)
++    world = LaunchConfiguration('world_name').perform(context)
++    share = Path(get_package_share_directory('tiago_2dnav'))
++    parameters = share / 'params' / f'tiago_{base}_nav_public_sim.yaml'
++    map_file = Path(get_package_share_directory('pal_maps')) / 'maps' / world / 'map.yaml'
++    requested_map = LaunchConfiguration('map').perform(context)
++    if requested_map:
++        map_file = Path(requested_map).expanduser()
++    namespace = context.launch_configurations.get('ros_namespace', '').strip('/')
++    prefix = '/' + namespace if namespace else ''
++    configuration = yaml.safe_load(parameters.read_text())
++
++    def namespace_topics(value):
++        if isinstance(value, dict):
++            for key, item in value.items():
++                if isinstance(item, str) and item.startswith('/') and key.endswith('topic'):
++                    value[key] = prefix + item
++                else:
++                    namespace_topics(item)
++
++    namespace_topics(configuration)
++    configuration['bt_navigator']['ros__parameters']['odom_topic'] = (
++        prefix + '/mobile_base_controller/odom'
+     )
+-
+-    laser_bringup_launch = include_scoped_launch_py_description(
+-        pkg_name="pal_nav2_bringup",
+-        paths=["launch", "nav_bringup.launch.py"],
+-        launch_arguments={
+-            "params_pkg": "tiago_laser_sensors",
+-            "params_file": base_type + "_laser_pipeline_sim.yaml",
+-            "robot_name": "tiago",
+-            "remappings_file": remappings_file,
+-        }
++    initial_pose = configuration['amcl']['ros__parameters']['initial_pose']
++    for axis in ['x', 'y', 'yaw']:
++        initial_pose[axis] = float(context.launch_configurations.get(axis, '0.0'))
++    for name in ['global_costmap', 'local_costmap']:
++        configuration[name][name]['ros__parameters']['static_layer']['map_topic'] = prefix + '/map'
++    if namespace:
++        # Fully qualified node keys apply to nodes inheriting the ROS namespace.
++        # Keep bare keys for upstream HasNodeParams' slam_toolbox discovery.
++        configuration.update(
++            {
++                prefix + '/' + name: copy.deepcopy(value)
++                for name, value in list(configuration.items())
++            }
++        )
++    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as stream:
++        yaml.safe_dump(configuration, stream)
++        parameters = Path(stream.name)
++    atexit.register(parameters.unlink, missing_ok=True)
++    if LaunchConfiguration('slam').perform(context).lower() != 'true' and not map_file.is_file():
++        raise FileNotFoundError(
++            f'No localization map for world {world}: {map_file}. '
++            'Use slam:=True to map a new world.'
++        )
++    # Include localization and navigation in separate scopes. In particular,
++    # slam_toolbox's /map -> map remap must never reach the costmap child nodes.
++    common = {
++        'params_file': str(parameters),
++        'namespace': '',
++        'use_sim_time': 'True',
++        'autostart': 'True',
++        'use_composition': 'False',
++    }
++    mapping = LaunchConfiguration('slam').perform(context).lower() == 'true'
++    localization = include_scoped_launch_py_description(
++        'nav2_bringup',
++        ['launch', 'slam_launch.py' if mapping else 'localization_launch.py'],
++        launch_arguments={**common, 'map': str(map_file)},
+     )
+-
+-    rviz_node = Node(
+-        package="rviz2",
+-        executable="rviz2",
+-        arguments=["-d", os.path.join(
+-            tiago_2dnav,
+-            "config",
+-            "rviz",
+-            "navigation.rviz",
+-        )],
+-        output="screen",
++    navigation = include_scoped_launch_py_description(
++        'nav2_bringup',
++        ['launch', 'navigation_launch.py'],
++        launch_arguments=common,
+     )
++    return [
++        OpaqueFunction(function=register_orderly_shutdown,
++                       kwargs={'namespace': prefix, 'mapping': mapping}),
++        localization,
++        GroupAction(
++            [
++                OpaqueFunction(function=isolate_ros_remaps),
++                SetRemap(src='cmd_vel', dst='nav_vel'),
++                navigation,
++            ]
++        ),
++        Node(
++            package='rviz2',
++            executable='rviz2',
++            arguments=['-d', str(share / 'config' / 'rviz' / 'navigation.rviz')],
++            parameters=[{'use_sim_time': True}],
++            condition=IfCondition(LaunchConfiguration('rviz')),
++        ),
++    ]
+ 
+-    actions.append(nav_bringup_launch)
+-    actions.append(slam_bringup_launch)
+-    actions.append(loc_bringup_launch)
+-    actions.append(laser_bringup_launch)
+-    actions.append(rviz_node)
+-
+-    return actions
+-
+-
+-def declare_actions(launch_description: LaunchDescription, launch_args: LaunchArguments):
+ 
+-    launch_description.add_action(
+-        OpaqueFunction(
+-            function=public_nav_function,
+-            condition=IfCondition(LaunchConfiguration("is_public_sim"))
+-        )
+-    )
+-
+-    launch_description.add_action(
+-        OpaqueFunction(
+-            function=private_nav_function,
+-            condition=UnlessCondition(LaunchConfiguration("is_public_sim"))
+-        )
++def generate_launch_description():
++    return LaunchDescription(
++        [
++            DeclareLaunchArgument('is_public_sim', default_value='True', choices=['True']),
++            DeclareLaunchArgument(
++                'base_type', default_value='pmb2', choices=['pmb2', 'omni_base']
++            ),
++            DeclareLaunchArgument('world_name', default_value='pal_office'),
++            DeclareLaunchArgument(
++                'map', default_value='', description='Override localization map YAML'
++            ),
++            DeclareLaunchArgument('slam', default_value='False', choices=['True', 'False']),
++            DeclareLaunchArgument('use_sim_time', default_value='True'),
++            DeclareLaunchArgument('rviz', default_value='True', choices=['True', 'False']),
++            OpaqueFunction(function=public_navigation),
++        ]
+     )
+diff --git a/tiago_2dnav/package.xml b/tiago_2dnav/package.xml
+index b0561a311d70468248cbe406829ea0c230fa3239..bab90d6294f1477c3ccb16bcd1ac7385850e780b 100644
+--- a/tiago_2dnav/package.xml
++++ b/tiago_2dnav/package.xml
+@@ -20,6 +20,9 @@
+   <exec_depend>rviz2</exec_depend>
+   <exec_depend>ros2launch</exec_depend>
+   <exec_depend>nav2_bringup</exec_depend>
++  <exec_depend>nav2_regulated_pure_pursuit_controller</exec_depend>
++  <exec_depend>nav2_msgs</exec_depend>
++  <exec_depend>rclpy</exec_depend>
+   <exec_depend>tiago_laser_sensors</exec_depend>
+   <exec_depend>tiago_description</exec_depend>
+   <exec_depend condition="$PAL_DISTRO >= alum">pal_nav2_bringup</exec_depend>
+diff --git a/tiago_2dnav/params/tiago_pmb2_nav_public_sim.yaml b/tiago_2dnav/params/tiago_pmb2_nav_public_sim.yaml
+index dd7cc885ebcbfe1cb92800f17799283c45b6995e..d3eb1f8d7509d0ccc100c95b7b60059c2ba918e6 100644
+--- a/tiago_2dnav/params/tiago_pmb2_nav_public_sim.yaml
++++ b/tiago_2dnav/params/tiago_pmb2_nav_public_sim.yaml
+@@ -148,7 +148,7 @@ controller_server:
+     min_theta_velocity_threshold: 0.001
+     failure_tolerance: 0.3
+     enable_stamped_cmd_vel: false
+-    progress_checker_plugin: "progress_checker"
++    progress_checker_plugins: ["progress_checker"]
+     goal_checker_plugins: ["general_goal_checker"]
+     controller_plugins: ["FollowPath"]
+     odom_topic: /mobile_base_controller/odom
+@@ -156,32 +156,55 @@ controller_server:
+     # Progress checker parameters
+     progress_checker:
+       plugin: "nav2_controller::SimpleProgressChecker"
+-      required_movement_radius: 0.5
+-      movement_time_allowance: 10.0
++      required_movement_radius: 0.25
++      movement_time_allowance: 20.0
+     # Goal checker parameters
+     general_goal_checker:
+       plugin: "nav2_controller::SimpleGoalChecker"
+       xy_goal_tolerance: 0.25
+       yaw_goal_tolerance: 0.25
+       stateful: True
+-    # DWB parameters
++    # Native Jazzy path tracking; the global obstacle layer replans detours.
+     FollowPath:
++      plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
++      desired_linear_vel: 0.3
++      lookahead_dist: 0.35
++      min_lookahead_dist: 0.3
++      max_lookahead_dist: 0.6
++      lookahead_time: 1.5
++      rotate_to_heading_angular_vel: 0.7
++      transform_tolerance: 0.3
++      use_velocity_scaled_lookahead_dist: true
++      min_approach_linear_velocity: 0.05
++      approach_velocity_scaling_dist: 0.6
++      max_allowed_time_to_collision_up_to_carrot: 1.0
++      use_regulated_linear_velocity_scaling: true
++      use_cost_regulated_linear_velocity_scaling: true
++      inflation_cost_scaling_factor: 3.0
++      regulated_linear_scaling_min_radius: 0.9
++      regulated_linear_scaling_min_speed: 0.05
++      use_rotate_to_heading: true
++      rotate_to_heading_min_angle: 0.785
++      max_angular_accel: 1.0
++      allow_reversing: false
++    # Retained as an alternative controller configuration.
++    DWB:
+       plugin: "dwb_core::DWBLocalPlanner"
+       debug_trajectory_details: True
+       min_vel_x: 0.0
+       min_vel_y: 0.0
+       max_vel_x: 0.3
+       max_vel_y: 0.0
+-      max_vel_theta: 5.00
++      max_vel_theta: 1.0
+       min_speed_xy: 0.0
+-      max_speed_xy: 1.00
++      max_speed_xy: 0.3
+       min_speed_theta: 0.0
+-      acc_lim_x: 2.5
++      acc_lim_x: 0.5
+       acc_lim_y: 0.0
+-      acc_lim_theta: 3.2
+-      decel_lim_x: -2.5
++      acc_lim_theta: 1.0
++      decel_lim_x: -0.5
+       decel_lim_y: 0.0
+-      decel_lim_theta: -3.2
++      decel_lim_theta: -1.0
+       vx_samples: 20
+       vy_samples: 5
+       vtheta_samples: 20
+@@ -190,7 +213,7 @@ controller_server:
+       angular_granularity: 0.025
+       transform_tolerance: 0.2
+       xy_goal_tolerance: 0.25
+-      trans_stopped_velocity: 0.25
++      trans_stopped_velocity: 0.05
+       short_circuit_trajectory_evaluation: True
+       stateful: True
+       critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
+@@ -430,6 +453,10 @@ velocity_smoother:
+   ros__parameters:
+     use_sim_time: true
+     enable_stamped_cmd_vel: false
++    max_velocity: [0.3, 0.0, 1.0]
++    min_velocity: [-0.2, 0.0, -1.0]
++    max_accel: [0.5, 0.0, 1.0]
++    max_decel: [-0.5, 0.0, -1.0]
+ 
+ waypoint_follower:
+   ros__parameters:

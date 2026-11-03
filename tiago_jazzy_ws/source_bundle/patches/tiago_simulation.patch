@@ -1,0 +1,1120 @@
+diff --git a/tiago_gazebo/CMakeLists.txt b/tiago_gazebo/CMakeLists.txt
+index 877e51991f42500240b415e4760aa222601b3c1f..a8ae6d86d2c403cd3854d989d4771c457ff97f5c 100644
+--- a/tiago_gazebo/CMakeLists.txt
++++ b/tiago_gazebo/CMakeLists.txt
+@@ -1,11 +1,11 @@
+-cmake_minimum_required(VERSION 3.4.0)
++cmake_minimum_required(VERSION 3.16)
+ project(tiago_gazebo)
+ 
+ find_package(ament_cmake_auto REQUIRED)
+ ament_auto_find_build_dependencies()
+ 
+ install(
+-  PROGRAMS scripts/tuck_arm.py
++  PROGRAMS scripts/tuck_arm.py scripts/simulation_adapter.py
+   DESTINATION lib/${PROJECT_NAME}
+ )
+ 
+@@ -38,6 +38,7 @@ if(BUILD_TESTING)
+ 
+   add_launch_test(
+     test/tuck_arm_test.launch.py
++    TIMEOUT 150
+   )
+ endif()
+ 
+diff --git a/tiago_gazebo/launch/robot_spawn.launch.py b/tiago_gazebo/launch/robot_spawn.launch.py
+index 9aaf565a533aedc2cc78369dccf2e80448f629a7..aa7dec31e7ae1d53159e62071d89c58c5f9757e2 100644
+--- a/tiago_gazebo/launch/robot_spawn.launch.py
++++ b/tiago_gazebo/launch/robot_spawn.launch.py
+@@ -12,133 +12,128 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
+-import os
++import atexit
+ from pathlib import Path
++import tempfile
+ 
+ from ament_index_python.packages import get_package_share_directory
+-
+ from launch import LaunchDescription
+ from launch.actions import DeclareLaunchArgument
++from launch.actions import OpaqueFunction
+ from launch.substitutions import LaunchConfiguration
+-
+ from launch_ros.actions import Node
+-from dataclasses import dataclass
+-from launch_pal.arg_utils import LaunchArgumentsBase
+-
+-
+-@dataclass(frozen=True)
+-class LaunchArguments(LaunchArgumentsBase):
+-    robot_name: DeclareLaunchArgument = DeclareLaunchArgument(
+-        name="robot_name", description="Gazebo model name"
+-    )
++import yaml
++
++
++def spawn(context):
++    def value(name):
++        return LaunchConfiguration(name).perform(context)
++
++    namespace = value('namespace').strip('/')
++    prefix = '/' + namespace if namespace else ''
++    base = value('base_type')
++    camera = value('camera_model') != 'no-camera'
++    laser = value('laser_model') != 'no-laser'
++    share = Path(get_package_share_directory('tiago_bringup'))
++    bridges = yaml.safe_load((share / 'config' / 'bridge' / 'tiago_bridge.yaml').read_text())
++    selected = []
++    for bridge in bridges:
++        name = bridge['ros_topic_name'].strip('/')
++        if name == 'tf':
++            continue
++        if name.startswith('head_front_camera') and not camera:
++            continue
++        if name.startswith('scan') and not laser:
++            continue
++        if base == 'omni_base' and (
++            name.startswith('sonar') or name in ['scan_raw', 'scan_raw/points']
++        ):
++            continue
++        if base == 'pmb2' and name in ['scan_front_raw', 'scan_rear_raw']:
++            continue
++        bridge = dict(bridge)
++        if bridge['ros_type_name'].startswith('sensor_msgs/'):
++            # Live sensor samples must not queue behind reliable retransmits
++            # of multi-megabyte clouds. Keep lidar and TF consumers current.
++            bridge['qos_profile'] = 'SENSOR_DATA'
++        if name == 'sonar_base':
++            # Keep the Classic ROS Range interface; the native sensor's
++            # LaserScan is an internal input to the compatibility adapter.
++            bridge['ros_topic_name'] = 'sonar_base/scan'
++        if name == 'clock':
++            if value('publish_clock').lower() != 'true':
++                continue
++            bridge['ros_topic_name'] = '/clock'
++            bridge['qos_profile'] = 'CLOCK'
++        else:
++            bridge['gz_topic_name'] = prefix + '/' + bridge['gz_topic_name'].strip('/')
++        selected.append(bridge)
++    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as stream:
++        yaml.safe_dump(selected, stream)
++        config_path = Path(stream.name)
++    atexit.register(config_path.unlink, missing_ok=True)
++    arguments = ['-name', value('robot_name'), '-topic', prefix + '/robot_description_sim']
++    for flag, name in [
++        ('x', 'x'),
++        ('y', 'y'),
++        ('z', 'z'),
++        ('R', 'roll'),
++        ('P', 'pitch'),
++        ('Y', 'yaw'),
++    ]:
++        arguments.extend(['-' + flag, value(name)])
++    actions = [
++        Node(package='ros_gz_sim', executable='create', output='screen', arguments=arguments),
++        Node(
++            package='ros_gz_bridge',
++            executable='parameter_bridge',
++            name='bridge_ros_gz',
++            output='screen',
++            parameters=[{'config_file': str(config_path), 'use_sim_time': True}],
++        ),
++        Node(
++            package='tiago_gazebo',
++            executable='simulation_adapter.py',
++            output='screen',
++            parameters=[{'use_sim_time': True, 'base_type': base}],
++        ),
++    ]
++    if camera:
++        for suffix in ['image', 'depth_image']:
++            actions.append(
++                Node(
++                    package='ros_gz_image',
++                    executable='image_bridge',
++                    name='bridge_camera_' + suffix,
++                    output='screen',
++                    parameters=[{'use_sim_time': True, 'qos': 'sensor_data'}],
++                    arguments=[prefix + '/head_front_camera/' + suffix],
++                )
++            )
++    return actions
+ 
+ 
+ def generate_launch_description():
+-
+-    # Create the launch description and populate
+-    ld = LaunchDescription()
+-    launch_arguments = LaunchArguments()
+-
+-    launch_arguments.add_to_launch_description(ld)
+-
+-    declare_actions(ld, launch_arguments)
+-
+-    return ld
+-
+-
+-def declare_actions(
+-    launch_description: LaunchDescription, launch_args: LaunchArguments
+-):
+-    sim_dir = get_package_share_directory('tiago_bringup')
+-
+-    gazebo_spawn_robot = Node(
+-        package="ros_gz_sim",
+-        executable="create",
+-        output="screen",
+-        arguments=[
+-            "-model",
+-            LaunchConfiguration("robot_name"),
+-            "-topic",
+-            "robot_description",
+-        ],
+-    )
+-
+-    launch_description.add_action(gazebo_spawn_robot)
+-
+-    bridge = Node(
+-        package='ros_gz_bridge',
+-        executable='parameter_bridge',
+-        name='bridge_ros_gz',
+-        parameters=[
+-            {
+-                'config_file': os.path.join(
+-                    sim_dir, 'config/bridge', 'tiago_bridge.yaml'
+-                ),
+-                'use_sim_time': True,
+-            }
+-        ],
+-        output='screen',
++    defaults = {
++        'robot_name': 'tiago',
++        'namespace': '',
++        'publish_clock': 'True',
++        'base_type': 'pmb2',
++        'camera_model': 'orbbec-astra',
++        'laser_model': 'sick-571',
++        'x': '0.0',
++        'y': '0.0',
++        'z': '0.0',
++        'roll': '0.0',
++        'pitch': '0.0',
++        'yaw': '0.0',
++    }
++    return LaunchDescription(
++        [
++            *[
++                DeclareLaunchArgument(name, default_value=default)
++                for name, default in defaults.items()
++            ],
++            OpaqueFunction(function=spawn),
++        ]
+     )
+-
+-    launch_description.add_action(bridge)
+-
+-    camera_bridge_image = Node(
+-        package='ros_gz_image',
+-        executable='image_bridge',
+-        name='bridge_gz_ros_camera_image',
+-        output='screen',
+-        parameters=[{
+-            'use_sim_time': True,
+-        }],
+-        arguments=['/head_front_camera/image'])
+-
+-    launch_description.add_action(camera_bridge_image)
+-
+-    camera_bridge_depth = Node(
+-        package='ros_gz_image',
+-        executable='image_bridge',
+-        name='bridge_gz_ros_camera_depth',
+-        output='screen',
+-        parameters=[{
+-            'use_sim_time': True,
+-        }],
+-        arguments=['/head_front_camera/depth_image'])
+-
+-    launch_description.add_action(camera_bridge_depth)
+-
+-    twist_stamper = Node(
+-        package="twist_stamper",
+-        executable="twist_stamper",
+-        output="screen",
+-        parameters = [
+-            {
+-                'frame_id': 'base_footprint',
+-                'use_sim_time': True,
+-            }
+-        ],
+-        remappings=[
+-            ('cmd_vel_in', '/cmd_vel_muxed'),
+-            ('cmd_vel_out', '/mobile_base_controller/cmd_vel')
+-        ],
+-    )
+-
+-    twist_stamper_cmd_vel = Node(
+-        package="twist_stamper",
+-        executable="twist_stamper",
+-        output="screen",
+-        parameters = [
+-            {
+-                'frame_id': 'base_footprint',
+-                'use_sim_time': True,
+-            }
+-        ],
+-        remappings=[
+-            ('cmd_vel_in', '/cmd_vel'),
+-            ('cmd_vel_out', '/mobile_base_controller/cmd_vel')
+-        ],
+-    )
+-
+-    launch_description.add_action(twist_stamper)
+-    launch_description.add_action(twist_stamper_cmd_vel)
+-
+-    return
+diff --git a/tiago_gazebo/launch/tiago_gazebo.launch.py b/tiago_gazebo/launch/tiago_gazebo.launch.py
+index a7932aa6a3dd71c2ee868beaab3932eb2107de8b..0014622e719096e25e3b57983f21d775ffd85d8f 100644
+--- a/tiago_gazebo/launch/tiago_gazebo.launch.py
++++ b/tiago_gazebo/launch/tiago_gazebo.launch.py
+@@ -12,28 +12,53 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
++from dataclasses import dataclass
+ import os
+-from os import environ, pathsep
++from os import environ
++from os import pathsep
++
+ from ament_index_python.packages import get_package_prefix
+ from launch import LaunchDescription
+-from launch.actions import DeclareLaunchArgument, SetEnvironmentVariable, SetLaunchConfiguration
++from launch.actions import DeclareLaunchArgument
++from launch.actions import GroupAction
++from launch.actions import SetEnvironmentVariable
++from launch.actions import SetLaunchConfiguration
+ from launch.conditions import IfCondition
++from launch.substitutions import AndSubstitution
+ from launch.substitutions import LaunchConfiguration
+-from launch_pal.include_utils import include_scoped_launch_py_description
++from launch.substitutions import OrSubstitution
++from launch.substitutions import PythonExpression
++from launch_pal.actions import CheckPublicSim
+ from launch_pal.arg_utils import LaunchArgumentsBase
+-from dataclasses import dataclass
++from launch_pal.include_utils import include_scoped_launch_py_description
+ from launch_pal.robot_arguments import CommonArgs
+ from launch_ros.actions import Node
++from launch_ros.actions import PushRosNamespace
++from launch_ros.actions import SetRemap
+ from tiago_description.launch_arguments import TiagoArgs
+-from launch_pal.actions import CheckPublicSim
+ 
+ 
+ @dataclass(frozen=True)
+ class LaunchArguments(LaunchArgumentsBase):
++    gazebo_version: DeclareLaunchArgument = DeclareLaunchArgument(
++        'gazebo_version',
++        default_value='gazebo',
++        choices=['gazebo'],
++        description='Gazebo Harmonic; Gazebo Classic is not supported on Jazzy.',
++    )
++    robot_name: DeclareLaunchArgument = DeclareLaunchArgument('robot_name', default_value='tiago')
++    publish_clock: DeclareLaunchArgument = DeclareLaunchArgument(
++        'publish_clock', default_value='True', choices=['True', 'False']
++    )
++    launch_world: DeclareLaunchArgument = DeclareLaunchArgument(
++        'launch_world', default_value='True', choices=['True', 'False']
++    )
+ 
+     base_type: DeclareLaunchArgument = TiagoArgs.base_type
+     has_screen: DeclareLaunchArgument = TiagoArgs.has_screen
++    calibration_tool: DeclareLaunchArgument = TiagoArgs.calibration_tool
+     arm_type: DeclareLaunchArgument = TiagoArgs.arm_type
++    arm_motor_model: DeclareLaunchArgument = TiagoArgs.arm_motor_model
+     end_effector: DeclareLaunchArgument = TiagoArgs.end_effector
+     ft_sensor: DeclareLaunchArgument = TiagoArgs.ft_sensor
+     wrist_model: DeclareLaunchArgument = TiagoArgs.wrist_model
+@@ -42,12 +67,25 @@ class LaunchArguments(LaunchArgumentsBase):
+ 
+     navigation: DeclareLaunchArgument = CommonArgs.navigation
+     advanced_navigation: DeclareLaunchArgument = CommonArgs.advanced_navigation
++    docking: DeclareLaunchArgument = CommonArgs.docking
+     slam: DeclareLaunchArgument = CommonArgs.slam
+     moveit: DeclareLaunchArgument = CommonArgs.moveit
+     world_name: DeclareLaunchArgument = CommonArgs.world_name
++    map: DeclareLaunchArgument = DeclareLaunchArgument(
++        'map', default_value='', description='Override the Nav2 localization map YAML.'
++    )
++    gzclient: DeclareLaunchArgument = CommonArgs.gzclient
++    rviz: DeclareLaunchArgument = CommonArgs.rviz
+     namespace: DeclareLaunchArgument = CommonArgs.namespace
+     tuck_arm: DeclareLaunchArgument = CommonArgs.tuck_arm
++    play_motion: DeclareLaunchArgument = CommonArgs.play_motion
+     is_public_sim: DeclareLaunchArgument = CommonArgs.is_public_sim
++    x: DeclareLaunchArgument = CommonArgs.x
++    y: DeclareLaunchArgument = CommonArgs.y
++    z: DeclareLaunchArgument = CommonArgs.z
++    roll: DeclareLaunchArgument = CommonArgs.roll
++    pitch: DeclareLaunchArgument = CommonArgs.pitch
++    yaw: DeclareLaunchArgument = CommonArgs.yaw
+ 
+ 
+ def generate_launch_description():
+@@ -63,82 +101,95 @@ def generate_launch_description():
+     return ld
+ 
+ 
+-def declare_actions(
+-    launch_description: LaunchDescription, launch_args: LaunchArguments
+-):
++def declare_actions(launch_description: LaunchDescription, launch_args: LaunchArguments):
+     # Set use_sim_time to True
+-    set_sim_time = SetLaunchConfiguration("use_sim_time", "True")
++    set_sim_time = SetLaunchConfiguration('use_sim_time', 'True')
+     launch_description.add_action(set_sim_time)
+ 
+     # Shows error if is_public_sim is not set to True when using public simulation
+     public_sim_check = CheckPublicSim()
+     launch_description.add_action(public_sim_check)
+ 
+-    robot_name = 'tiago'
+-    packages = ['tiago_description', 'pmb2_description',
+-                'pal_hey5_description', 'pal_gripper_description',
+-                'pal_robotiq_description', 'omni_base_description']
++    robot_name = LaunchConfiguration('robot_name')
++    packages = [
++        'tiago_description',
++        'pmb2_description',
++        'pal_hey5_description',
++        'pal_gripper_description',
++        'pal_robotiq_description',
++        'omni_base_description',
++    ]
+ 
+     model_path = get_model_paths(packages)
+ 
+-    gz_model_path_env_var = SetEnvironmentVariable(
+-        'GZ_SIM_RESOURCE_PATH', model_path)
+-    
++    gz_model_path_env_var = SetEnvironmentVariable('GZ_SIM_RESOURCE_PATH', model_path)
++
+     launch_description.add_action(gz_model_path_env_var)
+ 
+     gazebo = include_scoped_launch_py_description(
+-        pkg_name='br2_gazebo_worlds',
+-        paths=['launch', 'br2_gazebo.launch.py'],
++        pkg_name='pal_gazebo_worlds',
++        paths=['launch', 'pal_gazebo.launch.py'],
+         env_vars=[gz_model_path_env_var],
+         launch_arguments={
+-            "world_name":  launch_args.world_name,
+-            "model_paths": packages,
+-            "resource_paths": packages,
+-        })
++            'world_name': launch_args.world_name,
++            'gzclient': launch_args.gzclient,
++            'model_paths': packages,
++            'resource_paths': packages,
++        },
++        condition=IfCondition(LaunchConfiguration('launch_world')),
++    )
+ 
+     launch_description.add_action(gazebo)
++    robot_actions = [
++        PushRosNamespace(LaunchConfiguration('namespace')),
++        SetRemap(src='/tf', dst='tf'),
++        SetRemap(src='/tf_static', dst='tf_static'),
++    ]
+ 
+     navigation = include_scoped_launch_py_description(
+         pkg_name='tiago_2dnav',
+         paths=['launch', 'tiago_nav_bringup.launch.py'],
+         launch_arguments={
+-            "robot_name":  robot_name,
+-            "is_public_sim": launch_args.is_public_sim,
+-            "laser":  launch_args.laser_model,
+-            "base_type": launch_args.base_type,
+-            "world_name": launch_args.world_name,
++            'robot_name': robot_name,
++            'is_public_sim': launch_args.is_public_sim,
++            'laser': launch_args.laser_model,
++            'base_type': launch_args.base_type,
++            'world_name': launch_args.world_name,
+             'slam': launch_args.slam,
++            'map': launch_args.map,
++            'rviz': launch_args.rviz,
+             'use_sim_time': LaunchConfiguration('use_sim_time'),
+         },
+-        condition=IfCondition(LaunchConfiguration('navigation')))
+-
+-    launch_description.add_action(navigation)
+-
+-    advanced_navigation = include_scoped_launch_py_description(
+-        pkg_name='tiago_advanced_2dnav',
+-        paths=['launch', 'tiago_advanced_nav_bringup.launch.py'],
+-        launch_arguments={
+-            "base_type": launch_args.base_type,
+-        },
+-        condition=IfCondition(LaunchConfiguration('advanced_navigation')))
++        condition=IfCondition(
++            OrSubstitution(
++                LaunchConfiguration('navigation'), LaunchConfiguration('advanced_navigation')
++            )
++        ),
++    )
+ 
+-    launch_description.add_action(advanced_navigation)
++    robot_actions.append(navigation)
+ 
+     move_group = include_scoped_launch_py_description(
+         pkg_name='tiago_moveit_config',
+         paths=['launch', 'move_group.launch.py'],
+         launch_arguments={
+-            "robot_name": robot_name,
+-            "use_sim_time": LaunchConfiguration("use_sim_time"),
+-            "namespace": launch_args.namespace,
+-            "base_type": launch_args.base_type,
+-            "arm_type": launch_args.arm_type,
+-            "end_effector": launch_args.end_effector,
+-            "ft_sensor": launch_args.ft_sensor
++            'robot_name': robot_name,
++            'use_sim_time': LaunchConfiguration('use_sim_time'),
++            'namespace': launch_args.namespace,
++            'base_type': launch_args.base_type,
++            'arm_type': launch_args.arm_type,
++            'end_effector': launch_args.end_effector,
++            'ft_sensor': launch_args.ft_sensor,
++            'wrist_model': launch_args.wrist_model,
++            'camera_model': launch_args.camera_model,
++            'laser_model': launch_args.laser_model,
++            'has_screen': launch_args.has_screen,
++            'calibration_tool': launch_args.calibration_tool,
+         },
+-        condition=IfCondition(LaunchConfiguration('moveit')))
++        condition=IfCondition(LaunchConfiguration('moveit')),
++    )
+ 
+-    launch_description.add_action(move_group)
++    robot_actions.append(move_group)
+ 
+     robot_spawn = include_scoped_launch_py_description(
+         pkg_name='tiago_gazebo',
+@@ -146,48 +197,75 @@ def declare_actions(
+         paths=['launch', 'robot_spawn.launch.py'],
+         launch_arguments={
+             'robot_name': robot_name,
+-            'base_type': launch_args.base_type}
++            'base_type': launch_args.base_type,
++            'namespace': launch_args.namespace,
++            'camera_model': launch_args.camera_model,
++            'publish_clock': launch_args.publish_clock,
++            'laser_model': launch_args.laser_model,
++            'x': launch_args.x,
++            'y': launch_args.y,
++            'z': launch_args.z,
++            'roll': launch_args.roll,
++            'pitch': launch_args.pitch,
++            'yaw': launch_args.yaw,
++        },
+     )
+ 
+-    launch_description.add_action(robot_spawn)
++    robot_actions.append(robot_spawn)
+ 
+     tiago_bringup = include_scoped_launch_py_description(
+-        pkg_name='tiago_bringup', paths=['launch', 'tiago_bringup.launch.py'],
++        pkg_name='tiago_bringup',
++        paths=['launch', 'tiago_bringup.launch.py'],
+         launch_arguments={
+-            "use_sim_time": LaunchConfiguration("use_sim_time"),
+-            "arm_type": launch_args.arm_type,
+-            "laser_model": launch_args.laser_model,
+-            "camera_model": launch_args.camera_model,
+-            "base_type": launch_args.base_type,
+-            "wrist_model": launch_args.wrist_model,
+-            "ft_sensor": launch_args.ft_sensor,
+-            "end_effector": launch_args.end_effector,
+-            "has_screen": launch_args.has_screen,
+-            "is_public_sim": launch_args.is_public_sim,
+-        }
++            'use_sim_time': LaunchConfiguration('use_sim_time'),
++            'arm_type': launch_args.arm_type,
++            'arm_motor_model': launch_args.arm_motor_model,
++            'laser_model': launch_args.laser_model,
++            'camera_model': launch_args.camera_model,
++            'base_type': launch_args.base_type,
++            'wrist_model': launch_args.wrist_model,
++            'ft_sensor': launch_args.ft_sensor,
++            'end_effector': launch_args.end_effector,
++            'has_screen': launch_args.has_screen,
++            'calibration_tool': launch_args.calibration_tool,
++            'is_public_sim': launch_args.is_public_sim,
++            'namespace': launch_args.namespace,
++            'play_motion': launch_args.play_motion,
++        },
+     )
+ 
+-    launch_description.add_action(tiago_bringup)
+-
+-    tuck_arm = Node(package='tiago_gazebo',
+-                    executable='tuck_arm.py',
+-                    emulate_tty=True,
+-                    output='both',
+-                    condition=IfCondition(LaunchConfiguration('tuck_arm')))
++    robot_actions.append(tiago_bringup)
++
++    tuck_arm = Node(
++        package='tiago_gazebo',
++        executable='tuck_arm.py',
++        emulate_tty=True,
++        output='both',
++        condition=IfCondition(
++            AndSubstitution(
++                AndSubstitution(LaunchConfiguration('tuck_arm'), LaunchConfiguration('moveit')),
++                AndSubstitution(
++                    LaunchConfiguration('play_motion'),
++                    PythonExpression(["'", LaunchConfiguration('arm_type'), "' != 'no-arm'"]),
++                ),
++            )
++        ),
++    )
+ 
+-    launch_description.add_action(tuck_arm)
++    robot_actions.append(tuck_arm)
++    launch_description.add_action(GroupAction(robot_actions))
+ 
+     return
+ 
+ 
+ def get_model_paths(packages_names):
+-    model_paths = ""
++    model_paths = ''
+     for package_name in packages_names:
+-        if model_paths != "":
++        if model_paths != '':
+             model_paths += pathsep
+ 
+         package_path = get_package_prefix(package_name)
+-        model_path = os.path.join(package_path, "share")
++        model_path = os.path.join(package_path, 'share')
+ 
+         model_paths += model_path
+ 
+diff --git a/tiago_gazebo/package.xml b/tiago_gazebo/package.xml
+index 65e7bd1e850ec4019c6c4d915d8713063c399fb9..747864f1a7f6e90f09264cf315a9e82e2f248da8 100644
+--- a/tiago_gazebo/package.xml
++++ b/tiago_gazebo/package.xml
+@@ -12,23 +12,28 @@
+   <url type="website">https://github.com/pal-robotics/tiago_simulation</url>
+ 
+   <buildtool_depend>ament_cmake_auto</buildtool_depend>
+-  <build_depend>twist_stamper</build_depend>
+-
+-  <exec_depend>gz_plugins_vendor</exec_depend>
++  <exec_depend>br2_gazebo_worlds</exec_depend>
++  <exec_depend>pal_gazebo_worlds</exec_depend>
++  <exec_depend>gz_sim_vendor</exec_depend>
+   <exec_depend>ros_gz_sim</exec_depend>
++  <exec_depend>ros_gz_bridge</exec_depend>
++  <exec_depend>ros_gz_image</exec_depend>
++  <exec_depend>geometry_msgs</exec_depend>
++  <exec_depend>control_msgs</exec_depend>
++  <exec_depend>sensor_msgs</exec_depend>
++  <exec_depend>std_msgs</exec_depend>
++  <exec_depend>rclpy</exec_depend>
++  <exec_depend>tf2_ros</exec_depend>
+   <exec_depend>gz_ros2_control</exec_depend>
+   <exec_depend>launch</exec_depend>
+   <exec_depend>launch_pal</exec_depend>
+   <exec_depend>launch_ros</exec_depend>
+-  <exec_depend>pal_gazebo_worlds</exec_depend>
+-  <exec_depend>pal_gazebo_plugins</exec_depend>
+   <exec_depend>play_motion2_msgs</exec_depend>
+   <exec_depend>tiago_bringup</exec_depend>
+   <exec_depend>tiago_description</exec_depend>
+   <exec_depend>tiago_moveit_config</exec_depend>
+   <exec_depend>tiago_2dnav</exec_depend>
+   <exec_depend>omni_base_description</exec_depend>
+-  <exec_depend>twist_stamper</exec_depend>
+   <test_depend>ament_cmake_gtest</test_depend>
+   <test_depend>ament_lint_auto</test_depend>
+   <test_depend>ament_lint_common</test_depend>
+diff --git a/tiago_gazebo/scripts/tuck_arm.py b/tiago_gazebo/scripts/tuck_arm.py
+index a4cbc7007ced5545ac6dd74bc2d29e0b49edf188..c439fd53dd55867b05d7dbb2b5ce1038e0c54939 100755
+--- a/tiago_gazebo/scripts/tuck_arm.py
++++ b/tiago_gazebo/scripts/tuck_arm.py
+@@ -18,20 +18,16 @@ import time
+ 
+ from play_motion2_msgs.action import PlayMotion2
+ from play_motion2_msgs.srv import IsMotionReady
+-
+ import rclpy
+ from rclpy.action import ActionClient
+ from rclpy.node import Node
+ 
+ 
+ class PlayMotionActionClient(Node):
+-
+     def __init__(self):
+         super().__init__('arm_tucker')
+-        self._play_motion_client = ActionClient(
+-            self, PlayMotion2, 'play_motion2')
+-        self._is_ready_client = self.create_client(
+-            IsMotionReady, '/play_motion2/is_motion_ready')
++        self._play_motion_client = ActionClient(self, PlayMotion2, 'play_motion2')
++        self._is_ready_client = self.create_client(IsMotionReady, 'play_motion2/is_motion_ready')
+         self._is_successful = None
+ 
+     def is_successful(self):
+@@ -41,7 +37,7 @@ class PlayMotionActionClient(Node):
+         self._play_motion_client.wait_for_server()
+ 
+         while not self._is_ready_client.wait_for_service(timeout_sec=1.0):
+-            self.get_logger().error('is_ready service not ready, waiting...')
++            self.get_logger().info('is_ready service not ready, waiting...')
+ 
+         request = IsMotionReady.Request()
+         request.motion_key = 'home'
+@@ -62,7 +58,7 @@ class PlayMotionActionClient(Node):
+                         if is_ready:
+                             self.get_logger().info('play_motion2 is ready')
+                         else:
+-                            self.get_logger().error('play_motion2 is not ready')
++                            self.get_logger().info('play_motion2 is not ready')
+                     break
+ 
+     def send_goal(self, motion_name, skip_planning):
+@@ -71,8 +67,7 @@ class PlayMotionActionClient(Node):
+         goal_msg.motion_name = motion_name
+         goal_msg.skip_planning = skip_planning
+ 
+-        self._send_goal_future = \
+-            self._play_motion_client.send_goal_async(goal_msg)
++        self._send_goal_future = self._play_motion_client.send_goal_async(goal_msg)
+ 
+         self._send_goal_future.add_done_callback(self.goal_response_callback)
+ 
+@@ -106,9 +101,7 @@ class PlayMotionActionClient(Node):
+             self.get_logger().info('Motion succeeded')
+         else:
+             self._is_successful = False
+-            self.get_logger().error(
+-                'Motion failed with error {}'
+-                .format(error))
++            self.get_logger().error('Motion failed with error {}'.format(error))
+ 
+ 
+ def main(args=None):
+diff --git a/tiago_gazebo/test/tuck_arm_test.launch.py b/tiago_gazebo/test/tuck_arm_test.launch.py
+index 2ac34f89fc3e4a8d8caa5d511bf18922b444cca9..c51f1cf3461b868860fa23553be5663bc9c7d250 100644
+--- a/tiago_gazebo/test/tuck_arm_test.launch.py
++++ b/tiago_gazebo/test/tuck_arm_test.launch.py
+@@ -14,14 +14,11 @@
+ 
+ import os
+ import unittest
+-# import subprocess
+ 
+ from ament_index_python.packages import get_package_share_directory
+-
+ from launch import LaunchDescription
+-import launch_testing
+-
+ from launch_pal.include_utils import include_launch_py_description
++import launch_testing
+ 
+ 
+ def generate_test_description():
+@@ -29,13 +26,18 @@ def generate_test_description():
+     tiago_gazebo_dir = get_package_share_directory('tiago_gazebo')
+ 
+     launch_tiago_gazebo = include_launch_py_description(
+-        'tiago_gazebo', ['launch', 'tiago_gazebo.launch.py'],
+-        launch_arguments={'world_name': 'empty_world',
+-                          'is_public_sim': 'True'}.items())
++        'tiago_gazebo',
++        ['launch', 'tiago_gazebo.launch.py'],
++        launch_arguments={
++            'world_name': 'empty',
++            'gzclient': 'False',
++            'is_public_sim': 'True',
++        }.items(),
++    )
+ 
+     tuck_arm_test = launch_testing.actions.GTest(
+-        path=os.path.join(tiago_gazebo_dir, 'test', 'tuck_arm_test'),
+-        output='screen')
++        path=os.path.join(tiago_gazebo_dir, 'test', 'tuck_arm_test'), output='screen'
++    )
+ 
+     ld = LaunchDescription()
+ 
+@@ -49,7 +51,6 @@ def generate_test_description():
+ 
+ 
+ class TestStarted(unittest.TestCase):
+-
+     # @classmethod
+     # def tearDownClass(self):
+     #     # gzserver and gzclient aren't always killed on exit
+@@ -62,6 +63,5 @@ class TestStarted(unittest.TestCase):
+ 
+ @launch_testing.post_shutdown_test()
+ class TestProcessOutput(unittest.TestCase):
+-
+     def test_exit_code(self, proc_info, tuck_arm_test):
+         launch_testing.asserts.assertExitCodes(proc_info, process=tuck_arm_test)
+diff --git a/tiago_multi/CMakeLists.txt b/tiago_multi/CMakeLists.txt
+index 10f41c1ad886661861cc863b76cbc1353bf06002..3e9fc182395afa0f4e8559bb8ade14d1687dc136 100644
+--- a/tiago_multi/CMakeLists.txt
++++ b/tiago_multi/CMakeLists.txt
+@@ -1,15 +1,9 @@
+-cmake_minimum_required(VERSION 2.8.3)
++cmake_minimum_required(VERSION 3.16)
+ project(tiago_multi)
+-find_package(catkin REQUIRED COMPONENTS)
+-catkin_package()
+ 
+-install(
+-  PROGRAMS
+-    scripts/pose_writing.sh
+-  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
++find_package(ament_cmake REQUIRED)
+ 
+-foreach(dir config launch)
+-    install(DIRECTORY ${dir}/
+-        DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/${dir})
+-endforeach(dir)
++install(DIRECTORY launch DESTINATION share/${PROJECT_NAME}
++  FILES_MATCHING PATTERN "*.launch.py")
+ 
++ament_package()
+diff --git a/tiago_multi/COLCON_IGNORE b/tiago_multi/COLCON_IGNORE
+deleted file mode 100644
+index e69de29bb2d1d6434b8b29ae775ad8c2e48c5391..0000000000000000000000000000000000000000
+diff --git a/tiago_multi/package.xml b/tiago_multi/package.xml
+index ce1330732b5ffd1f062102a6cb85afa3adda4dec..065fbf1fd41397a771c4c9deb6976c334faf88cf 100644
+--- a/tiago_multi/package.xml
++++ b/tiago_multi/package.xml
+@@ -1,14 +1,13 @@
+ <?xml version="1.0"?>
+-<package>
++<package format="3">
+   <name>tiago_multi</name>
+   <version>2.0.23</version>
+-  <description>The tiago_multi package</description>
+-
+-  <maintainer email="david.fernandez@pal-robotics.com">davidfernandez</maintainer>
++  <description>Multi-robot TIAGo launch support for Gazebo Harmonic.</description>
++  <maintainer email="tiago-support@pal-robotics.com">TIAGo support team</maintainer>
+   <license>BSD</license>
+-
+   <url type="website">https://github.com/pal-robotics/tiago_simulation</url>
+-
+-  <buildtool_depend>catkin</buildtool_depend>
+-  <run_depend>tiago_gazebo</run_depend>
++  <buildtool_depend>ament_cmake</buildtool_depend>
++  <exec_depend>launch_ros</exec_depend>
++  <exec_depend>tiago_gazebo</exec_depend>
++  <export><build_type>ament_cmake</build_type></export>
+ </package>
+diff --git a/tiago_gazebo/scripts/simulation_adapter.py b/tiago_gazebo/scripts/simulation_adapter.py
+new file mode 100755
+index 0000000000000000000000000000000000000000..ebb616496228cd3610db12f06c2d1630f77e4f05
+--- /dev/null
++++ b/tiago_gazebo/scripts/simulation_adapter.py
+@@ -0,0 +1,216 @@
++#!/usr/bin/env python3
++# Copyright 2026 TIAGo Jazzy port contributors
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++"""Preserve TIAGo velocity and sensor interfaces across the Harmonic migration."""
++
++import math
++import signal
++
++from control_msgs.msg import JointTrajectoryControllerState
++from geometry_msgs.msg import Twist
++from geometry_msgs.msg import TwistStamped
++from launch_pal.urdf_utils import harmonic_spawn_description
++import rclpy
++from rclpy.executors import ExternalShutdownException
++from rclpy.node import Node
++from rclpy.qos import DurabilityPolicy
++from rclpy.qos import qos_profile_sensor_data
++from rclpy.qos import QoSProfile
++from rclpy.signals import SignalHandlerOptions
++from sensor_msgs.msg import CameraInfo
++from sensor_msgs.msg import Image
++from sensor_msgs.msg import LaserScan
++from sensor_msgs.msg import PointCloud2
++from sensor_msgs.msg import Range
++from std_msgs.msg import String
++from tf2_ros import Buffer
++from tf2_ros import TransformException
++from tf2_ros import TransformListener
++
++
++class SimulationAdapter(Node):
++    """Stamp velocity inputs, maintain the stop watchdog, and bridge legacy names."""
++
++    def __init__(self):
++        super().__init__('simulation_adapter')
++        self.declare_parameter('base_type', 'pmb2')
++        description_qos = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL)
++        self.sim_description = self.create_publisher(
++            String, 'robot_description_sim', description_qos
++        )
++        self.description_input = self.create_subscription(
++            String, 'robot_description', self.prepare_sim_description, description_qos
++        )
++        self.command = Twist()
++        self.command_time = None
++        self.velocity = self.create_publisher(TwistStamped, 'mobile_base_controller/cmd_vel', 10)
++        self.inputs = [
++            self.create_subscription(Twist, topic, self.receive_velocity, 10)
++            for topic in ['cmd_vel_muxed', 'mobile_base_controller/cmd_vel_unstamped']
++        ]
++        self.timer = self.create_timer(0.05, self.publish_velocity)
++        self.relays = []
++        for controller in ['arm', 'torso', 'head', 'gripper', 'hand']:
++            publisher = self.create_publisher(
++                JointTrajectoryControllerState, controller + '_controller/state', 10
++            )
++            self.relays.append(
++                self.create_subscription(
++                    JointTrajectoryControllerState,
++                    controller + '_controller/controller_state',
++                    publisher.publish,
++                    10,
++                )
++            )
++        if self.get_parameter('base_type').value == 'pmb2':
++            self.sonar = self.create_publisher(Range, 'sonar_base', qos_profile_sensor_data)
++            self.relays.append(
++                self.create_subscription(
++                    LaserScan, 'sonar_base/scan', self.convert_range, qos_profile_sensor_data
++                )
++            )
++        aliases = [
++            (Image, 'head_front_camera/image', 'head_front_camera/rgb/image_raw'),
++            (Image, 'head_front_camera/depth_image', 'head_front_camera/depth/image_raw'),
++            (
++                Image,
++                'head_front_camera/depth_image',
++                'head_front_camera/depth_registered/image_raw',
++            ),
++            (CameraInfo, 'head_front_camera/camera_info', 'head_front_camera/rgb/camera_info'),
++            (CameraInfo, 'head_front_camera/camera_info', 'head_front_camera/depth/camera_info'),
++            (
++                CameraInfo,
++                'head_front_camera/camera_info',
++                'head_front_camera/depth_registered/camera_info',
++            ),
++            (PointCloud2, 'head_front_camera/points', 'head_front_camera/depth_registered/points'),
++            (PointCloud2, 'head_front_camera/points', 'head_front_camera/depth/rgb/points'),
++        ]
++        for message_type, source, target in aliases:
++            publisher = self.create_publisher(message_type, target, qos_profile_sensor_data)
++            self.relays.append(
++                self.create_subscription(
++                    message_type, source, publisher.publish, qos_profile_sensor_data
++                )
++            )
++        if self.get_parameter('base_type').value == 'omni_base':
++            self.tf = Buffer()
++            self.listener = TransformListener(self.tf, self)
++            self.scans = {}
++            self.scan = self.create_publisher(LaserScan, 'scan_raw', qos_profile_sensor_data)
++            for topic in ['scan_front_raw', 'scan_rear_raw']:
++                self.relays.append(
++                    self.create_subscription(
++                        LaserScan,
++                        topic,
++                        lambda msg, key=topic: self.merge_scan(key, msg),
++                        qos_profile_sensor_data,
++                    )
++                )
++
++    def receive_velocity(self, message):
++        self.command = message
++        self.command_time = self.get_clock().now()
++
++    def prepare_sim_description(self, message):
++        # gz_ros2_control implements URDF mimic joints in its write() loop.
++        # Harmonic's default DART backend cannot also create SDF mimic
++        # constraints. Keep the original URDF for controllers, TF and MoveIt;
++        # remove only duplicate physics constraints from the spawn description.
++        self.sim_description.publish(String(data=harmonic_spawn_description(message.data)))
++
++    def convert_range(self, scan):
++        message = Range()
++        message.header = scan.header
++        message.radiation_type = Range.ULTRASOUND
++        message.field_of_view = scan.angle_max - scan.angle_min
++        message.min_range = scan.range_min
++        message.max_range = scan.range_max
++        message.range = min(scan.ranges, default=math.inf)
++        self.sonar.publish(message)
++
++    def publish_velocity(self):
++        now = self.get_clock().now()
++        message = TwistStamped()
++        message.header.stamp = now.to_msg()
++        message.header.frame_id = 'base_footprint'
++        if self.command_time is not None and (now - self.command_time).nanoseconds < 250_000_000:
++            message.twist = self.command
++        self.velocity.publish(message)
++
++    def merge_scan(self, key, message):
++        self.scans[key] = message
++        output = LaserScan()
++        output.header.stamp = message.header.stamp
++        output.header.frame_id = 'base_footprint'
++        output.angle_min = -math.pi
++        output.angle_max = math.pi
++        count = 1081
++        output.angle_increment = 2.0 * math.pi / (count - 1)
++        output.range_min = 0.05
++        output.range_max = 25.0
++        output.scan_time = message.scan_time
++        ranges = [math.inf] * count
++        for scan in self.scans.values():
++            try:
++                transform = self.tf.lookup_transform(
++                    'base_footprint', scan.header.frame_id, rclpy.time.Time()
++                )
++            except TransformException:
++                return
++            q = transform.transform.rotation
++            yaw = math.atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z))
++            origin = transform.transform.translation
++            for index, distance in enumerate(scan.ranges):
++                if not math.isfinite(distance) or not scan.range_min <= distance <= scan.range_max:
++                    continue
++                angle = scan.angle_min + index * scan.angle_increment + yaw
++                x = origin.x + distance * math.cos(angle)
++                y = origin.y + distance * math.sin(angle)
++                bin_index = round((math.atan2(y, x) + math.pi) / output.angle_increment)
++                if 0 <= bin_index < count:
++                    ranges[bin_index] = min(ranges[bin_index], math.hypot(x, y))
++        output.ranges = ranges
++        self.scan.publish(output)
++
++
++def main():
++    rclpy.init(signal_handler_options=SignalHandlerOptions.NO)
++    # Only set a flag inside the Python signal handler. Shutting down the ROS
++    # context there can re-enter executor locks during a DDS callback.
++    stopping = False
++
++    def request_stop(*_):
++        nonlocal stopping
++        stopping = True
++
++    signal.signal(signal.SIGINT, request_stop)
++    signal.signal(signal.SIGTERM, request_stop)
++    node = SimulationAdapter()
++    try:
++        while rclpy.ok() and not stopping:
++            rclpy.spin_once(node, timeout_sec=0.1)
++    except (KeyboardInterrupt, ExternalShutdownException):
++        pass
++    except RuntimeError:
++        if rclpy.ok():
++            raise
++    finally:
++        node.destroy_node()
++        if rclpy.ok():
++            rclpy.shutdown()
++
++
++if __name__ == '__main__':
++    main()
+diff --git a/tiago_multi/launch/multitiago_gazebo.launch.py b/tiago_multi/launch/multitiago_gazebo.launch.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..1dafbf007a15085e5478080270965077bbc715d6
+--- /dev/null
++++ b/tiago_multi/launch/multitiago_gazebo.launch.py
+@@ -0,0 +1,67 @@
++# Copyright 2026 TIAGo Jazzy port contributors
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++"""Spawn two independent namespaced TIAGos in one Harmonic server."""
++
++from pathlib import Path
++
++from ament_index_python.packages import get_package_share_directory
++from launch import LaunchDescription
++from launch.actions import DeclareLaunchArgument
++from launch.actions import IncludeLaunchDescription
++from launch.launch_description_sources import PythonLaunchDescriptionSource
++from launch.substitutions import LaunchConfiguration
++
++
++def generate_launch_description():
++    simulation = str(
++        Path(get_package_share_directory('tiago_gazebo')) / 'launch' / 'tiago_gazebo.launch.py'
++    )
++    worlds = str(
++        Path(get_package_share_directory('pal_gazebo_worlds')) / 'launch' / 'pal_gazebo.launch.py'
++    )
++    actions = [
++        DeclareLaunchArgument('world_name', default_value='pal_office'),
++        DeclareLaunchArgument('gzclient', default_value='True'),
++        DeclareLaunchArgument('moveit', default_value='False'),
++        DeclareLaunchArgument('navigation', default_value='False'),
++        DeclareLaunchArgument('slam', default_value='False'),
++        IncludeLaunchDescription(
++            PythonLaunchDescriptionSource(worlds),
++            launch_arguments={
++                'world_name': LaunchConfiguration('world_name'),
++                'gzclient': LaunchConfiguration('gzclient'),
++            }.items(),
++        ),
++    ]
++    for index, y in [(1, '-1.0'), (2, '1.0')]:
++        namespace = f'tiago{index}'
++        actions.append(
++            IncludeLaunchDescription(
++                PythonLaunchDescriptionSource(simulation),
++                launch_arguments={
++                    'robot_name': namespace,
++                    'publish_clock': str(index == 1),
++                    'namespace': namespace,
++                    'launch_world': 'False',
++                    'is_public_sim': 'True',
++                    'world_name': LaunchConfiguration('world_name'),
++                    'moveit': LaunchConfiguration('moveit'),
++                    'navigation': LaunchConfiguration('navigation'),
++                    'slam': LaunchConfiguration('slam'),
++                    'tuck_arm': 'False',
++                    'y': y,
++                    'rviz': 'False',
++                }.items(),
++            )
++        )
++    return LaunchDescription(actions)

@@ -1,0 +1,145 @@
+{
+  "repositories": {
+    "br2_gazebo_worlds": {
+      "url": "https://github.com/Tiago-Harmonic/br2_gazebo_worlds.git",
+      "revision": "e5e25ece539e0840c65b547ed2c0d94b9bc50cac",
+      "patch": "patches/br2_gazebo_worlds.patch",
+      "sha256": "80854405a1e3f6e3575a4e09dbed37cc3d241d319edef6508149b92a24892cc8"
+    },
+    "launch_pal": {
+      "url": "https://github.com/Tiago-Harmonic/launch_pal.git",
+      "revision": "a9113d96f6d5691f6d24930f184f9be085b582d7",
+      "patch": "patches/launch_pal.patch",
+      "sha256": "a0b0e0b565c2e25dbc728c2d5e62cfbe9f060ae298545e330838edf744d144c0"
+    },
+    "moveit2": {
+      "url": "https://github.com/moveit/moveit2.git",
+      "revision": "1ade0e9dcf50dbbbc3a984b995c786cf12736235",
+      "patch": "patches/moveit2.patch",
+      "sha256": "c7d2b065fe31007408feede3afa0d0d927f399de8120d15ca248200738106c79"
+    },
+    "pal_gazebo_worlds": {
+      "url": "https://github.com/pal-robotics/pal_gazebo_worlds.git",
+      "revision": "74f953218b3c414cda2f07a99eab2ea9fcbbada0",
+      "patch": "patches/pal_gazebo_worlds.patch",
+      "sha256": "643170b02a68337f5f1a21b5b9e30a68b94b10e171578a3aaa540bbee8146ba8"
+    },
+    "pal_gripper": {
+      "url": "https://github.com/Tiago-Harmonic/pal_gripper.git",
+      "revision": "f696b11183cec43fe050778c26fd5043d831eb85",
+      "patch": "patches/pal_gripper.patch",
+      "sha256": "f511d8c0973e24d14a37bb41a0c193bd0abd210bfad385e7b03b7df43063fd87"
+    },
+    "pal_hey5": {
+      "url": "https://github.com/Tiago-Harmonic/pal_hey5.git",
+      "revision": "37e8c5428ba642ed0e686cdd64a8b3929fe3fdd5",
+      "patch": "patches/pal_hey5.patch",
+      "sha256": "3f2ab580784ea3d2d12d4bf927372e1a69e3a68d701590bc5b4428a515a102bb"
+    },
+    "pal_maps": {
+      "url": "https://github.com/Tiago-Harmonic/pal_maps.git",
+      "revision": "22ee0bf384a218420e6e2a571b7d0d7ef6cf65fc",
+      "patch": "patches/pal_maps.patch",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "pal_navigation_cfg_public": {
+      "url": "https://github.com/pal-robotics/pal_navigation_cfg_public.git",
+      "revision": "50b2b2f923ffbb9134027412bf3d0a00fcddc5bd",
+      "patch": "patches/pal_navigation_cfg_public.patch",
+      "sha256": "7ca2bc67db0cf4555c8339166cba74861ba64924419c075bf36e90d428972a64"
+    },
+    "pal_robotiq_gripper": {
+      "url": "https://github.com/Tiago-Harmonic/pal_robotiq_gripper.git",
+      "revision": "33f6b03a6ae00ebf358ca6dc9806f1062de204bc",
+      "patch": "patches/pal_robotiq_gripper.patch",
+      "sha256": "73f45756f3034929fd6cffc075f8eed8c5e5041b3c5e44e663aca525647affbe"
+    },
+    "pal_urdf_utils": {
+      "url": "https://github.com/Tiago-Harmonic/pal_urdf_utils.git",
+      "revision": "a8f3bec9b8371a898225f2cb12f53e599e757168",
+      "patch": "patches/pal_urdf_utils.patch",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "play_motion2": {
+      "url": "https://github.com/pal-robotics/play_motion2.git",
+      "revision": "fbd9bbafe44acd662d3f9018b5ffb848f0f66cdd",
+      "patch": "patches/play_motion2.patch",
+      "sha256": "59e74d6bca7ad4e3db42c3b15493a206e6e8df77d048b08a5c2b0cfba4692548"
+    },
+    "pmb2_navigation": {
+      "url": "https://github.com/Tiago-Harmonic/pmb2_navigation.git",
+      "revision": "4e15ad3bcc6d0df4df752ee8837bfec949c25e46",
+      "patch": "patches/pmb2_navigation.patch",
+      "sha256": "39976fabb9c22d8c86df86dbbb9549797260f9c76578de433570251282aaa9b6"
+    },
+    "pmb2_robot": {
+      "url": "https://github.com/Tiago-Harmonic/pmb2_robot.git",
+      "revision": "984ac253d667ef0757348eaefcbb4404d599e575",
+      "patch": "patches/pmb2_robot.patch",
+      "sha256": "198dba48a770fd872e3e1b2959fc666756ce888308bb7cbf8b73d073061bb606"
+    },
+    "ros_gz": {
+      "url": "https://github.com/gazebosim/ros_gz.git",
+      "revision": "5912bfe7976a79d2cc9f373b2d40a8a3a3e33da2",
+      "patch": "patches/ros_gz.patch",
+      "sha256": "88f7650cfc447f1291bf7bae8e417377ca4d8f5612f861fa4e0cd3e1375978b7"
+    },
+    "tiago_harmonic": {
+      "url": "https://github.com/Tiago-Harmonic/tiago_harmonic.git",
+      "revision": "835892d534c3f5bb7996ae7a50a5a1f06fc99f7e",
+      "patch": "patches/tiago_harmonic.patch",
+      "sha256": "e78940a64cddcd3013cdbf13e4feaa6fb4aacf2067c729e00223733037118265"
+    },
+    "tiago_moveit_config": {
+      "url": "https://github.com/Tiago-Harmonic/tiago_moveit_config.git",
+      "revision": "2ff8816bf839bef73a1e6d057da4300b58351da0",
+      "patch": "patches/tiago_moveit_config.patch",
+      "sha256": "f35c93a76ed906c281541041f9c6504aa1b5b7daea47469c484271650def9e06"
+    },
+    "tiago_navigation": {
+      "url": "https://github.com/Tiago-Harmonic/tiago_navigation",
+      "revision": "280353f804da563ab44435eed703461675741583",
+      "patch": "patches/tiago_navigation.patch",
+      "sha256": "47162775c0093a0b1b3146c65e426ff2f83f6d1f25bf7ee53a728951245c2664"
+    },
+    "tiago_omni_base": {
+      "url": "https://github.com/Tiago-Harmonic/omni_base_robot.git",
+      "revision": "5a822f81fe06bd400c82533f728984c35ac163e2",
+      "patch": "patches/tiago_omni_base.patch",
+      "sha256": "044d15aea160dafe918059b18a731dfc6de0a93339b34eb0ae95214e20df3892"
+    },
+    "tiago_robot": {
+      "url": "https://github.com/Tiago-Harmonic/tiago_robot.git",
+      "revision": "bc2ac55a0be2c49ccca6e09f6ff533902c9fb8e2",
+      "patch": "patches/tiago_robot.patch",
+      "sha256": "2b7d3adf6bbf1fefd6a060a6c6d25dd774b43b1f703a6a2c1f60e24d1c155d16"
+    },
+    "tiago_simulation": {
+      "url": "https://github.com/Tiago-Harmonic/tiago_simulation.git",
+      "revision": "d35cb5a4d08daeb64d529569db0a645a9ceb1348",
+      "patch": "patches/tiago_simulation.patch",
+      "sha256": "ae3370c0175cced7da146805f3dfa11fb7aa5cbf774d6957c93ac604e49d952c"
+    },
+    "urdf_test": {
+      "url": "https://github.com/pal-robotics/urdf_test.git",
+      "revision": "3a827003480c3d67d4a21b364e2738cc88248bcd",
+      "patch": "patches/urdf_test.patch",
+      "sha256": "4723f5aec19a8b7e8ed202b1c472b55e8858d1bb7dbed6ecd94fb254df4b743f"
+    }
+  },
+  "sparse": {
+    "moveit2": [
+      "moveit_ros/planning",
+      "moveit_ros/move_group"
+    ],
+    "ros_gz": [
+      "ros_gz_bridge",
+      "ros_gz_image"
+    ]
+  },
+  "local": [
+    "tiago_gz_plugins",
+    "tiago_jazzy_port"
+  ],
+  "local_sha256": "7eadd2f1f81d390413c2a9f3ffd58f8ec3d3a32bf35274d0fb47d04e460b3d23"
+}

@@ -1,0 +1,1498 @@
+diff --git a/launch_pal/__init__.py b/launch_pal/__init__.py
+index 7f94a6546646928353fc3b9001bfa66421f556bd..47f99f27f29b7c2bc5b627211652637aa1fa2260 100644
+--- a/launch_pal/__init__.py
++++ b/launch_pal/__init__.py
+@@ -12,11 +12,11 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
++from . import actions
+ from . import arg_utils
+ from . import include_utils
+ from . import param_utils
+ from . import substitutions
+-from . import actions
+ from .pal_parameters import get_pal_configuration
+ 
+ __all__ = [
+diff --git a/launch_pal/actions/check_public_sim.py b/launch_pal/actions/check_public_sim.py
+index eb3c840ee0ef3c984a79436eb47a4f5569956f35..150a4e7c9b715cad01b6157af02b549573916650 100644
+--- a/launch_pal/actions/check_public_sim.py
++++ b/launch_pal/actions/check_public_sim.py
+@@ -12,17 +12,17 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
++import os
++from typing import List
++from typing import Optional
++
+ from launch import Action
+ from launch.launch_context import LaunchContext
+ from launch.launch_description_entity import LaunchDescriptionEntity
+-from typing import Optional
+-from typing import List
+ from launch_pal.arg_utils import read_launch_argument
+-import os
+ 
+ 
+ class CheckPublicSim(Action):
+-
+     def execute(self, context: LaunchContext) -> Optional[List[LaunchDescriptionEntity]]:
+         """Raise and exception if is_public sim is used incorrectly."""
+         is_public_sim = read_launch_argument('is_public_sim', context)
+diff --git a/launch_pal/arg_utils.py b/launch_pal/arg_utils.py
+index cf2ae63a833b9cb1973fa7741caa1f560c87f573..d02a41377a9eb97926a0259ba4461108223e8f70 100644
+--- a/launch_pal/arg_utils.py
++++ b/launch_pal/arg_utils.py
+@@ -12,16 +12,16 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
++from dataclasses import dataclass
++
+ from launch import LaunchDescription
++from launch.actions import DeclareLaunchArgument
+ from launch.substitutions import LaunchConfiguration
+ from launch.utilities import perform_substitutions
+-from launch.actions import DeclareLaunchArgument
+-from dataclasses import dataclass
+ import yaml
+ 
+ 
+ class LaunchArgCreator:
+-
+     def __init__(self) -> None:
+         self.launch_arguments = {}
+ 
+@@ -29,11 +29,13 @@ class LaunchArgCreator:
+         with open(yaml_file, 'r') as file:
+             arg_configurations = yaml.load(file, Loader=yaml.FullLoader)
+             try:
+-                self.launch_arguments = {key: self.dict_to_launch_arg(
+-                    item, key) for key, item in arg_configurations.items()}
++                self.launch_arguments = {
++                    key: self.dict_to_launch_arg(item, key)
++                    for key, item in arg_configurations.items()
++                }
+             except Exception as e:
+-                print(f"Could not parse launch argument from file {yaml_file}")
+-                print(f"Error: {e}")
++                print(f'Could not parse launch argument from file {yaml_file}')
++                print(f'Error: {e}')
+ 
+     def is_valid_dict(self, launch_dict: dict) -> bool:
+         valid_keys = ['description', 'default_value', 'choices']
+@@ -45,8 +47,7 @@ class LaunchArgCreator:
+     def dict_to_launch_arg(self, launch_dict: dict, arg_name: str) -> str:
+ 
+         if not self.is_valid_dict(launch_dict):
+-            raise ValueError(
+-                f"Launch argument configuration is not valid for {arg_name}")
++            raise ValueError(f'Launch argument configuration is not valid for {arg_name}')
+ 
+         description = launch_dict['description']
+         default_value = None
+@@ -56,15 +57,13 @@ class LaunchArgCreator:
+         if 'choices' in launch_dict.keys():
+             choices = launch_dict['choices']
+ 
+-        return DeclareLaunchArgument(name=arg_name,
+-                                     description=description,
+-                                     default_value=default_value,
+-                                     choices=choices)
++        return DeclareLaunchArgument(
++            name=arg_name, description=description, default_value=default_value, choices=choices
++        )
+ 
+     def get_argument(self, arg_name: str) -> DeclareLaunchArgument:
+         if arg_name not in self.launch_arguments.keys():
+-            raise KeyError(
+-                f"Launch argument {arg_name} does not exist")
++            raise KeyError(f'Launch argument {arg_name} does not exist')
+ 
+         return self.launch_arguments[arg_name]
+ 
+@@ -84,8 +83,9 @@ class LaunchArgumentsBase:
+         for attr, type_ in annotations.items():
+             if not issubclass(type_, DeclareLaunchArgument):
+                 raise TypeError(
+-                    f"All attributes in dataclass {cls.__name__} must have type \
+-                          DeclareLaunchArgument")
++                    f'All attributes in dataclass {cls.__name__} must have type \
++                          DeclareLaunchArgument'
++                )
+ 
+     def add_to_launch_description(self, launch_description: LaunchDescription):
+         """
+@@ -121,5 +121,4 @@ def read_launch_argument(arg_name, context):
+         The value of the launch argument
+ 
+     """
+-    return perform_substitutions(context,
+-                                 [LaunchConfiguration(arg_name)])
++    return perform_substitutions(context, [LaunchConfiguration(arg_name)])
+diff --git a/launch_pal/composition_utils.py b/launch_pal/composition_utils.py
+index 0667a3b718ae4a76055f1f33d69b59d9c54d0461..a306a128e92dbcc6e5a3f6606b8a07d8cf5a33eb 100644
+--- a/launch_pal/composition_utils.py
++++ b/launch_pal/composition_utils.py
+@@ -12,29 +12,29 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
+-import yaml
+ from typing import Dict
++
+ from launch_ros.descriptions import ComposableNode
++import yaml
+ 
+ 
+ def generate_component_list(yaml_file):
+ 
+     components = []
+ 
+-    with open(yaml_file, "r") as composition_yaml:
++    with open(yaml_file, 'r') as composition_yaml:
+         cfg: Dict = yaml.safe_load(composition_yaml)
+ 
+-        if "components" in cfg:
+-            for component in cfg["components"]:
+-
+-                component_params = cfg["components"][component]
+-                component_pkg = component_params["package"]
+-                component_type = component_params["type"]
+-                ros_params = [component_params["ros__parameters"]]
++        if 'components' in cfg:
++            for component in cfg['components']:
++                component_params = cfg['components'][component]
++                component_pkg = component_params['package']
++                component_type = component_params['type']
++                ros_params = [component_params['ros__parameters']]
+ 
+                 launchable_component = ComposableNode(
+                     package=component_pkg,
+-                    plugin=f"{component_pkg}::{component_type}",
++                    plugin=f'{component_pkg}::{component_type}',
+                     name=component,
+                     parameters=ros_params,
+                 )
+diff --git a/launch_pal/include_utils.py b/launch_pal/include_utils.py
+index a4f644c0affec424bad756b990c796ec6f2ae9fc..d360e46d84eefcabe19848818981c2b3ec16e26d 100644
+--- a/launch_pal/include_utils.py
++++ b/launch_pal/include_utils.py
+@@ -12,23 +12,28 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
+-from typing import List, Dict, Optional
+ import copy
+-from launch import SomeSubstitutionsType
+-from launch.actions import IncludeLaunchDescription, GroupAction, DeclareLaunchArgument
+-from launch.actions import SetEnvironmentVariable
++from typing import Dict
++from typing import List
++from typing import Optional
+ 
+ from launch import Action
+ from launch import Condition
++from launch import SomeSubstitutionsType
++from launch.actions import DeclareLaunchArgument
++from launch.actions import GroupAction
++from launch.actions import IncludeLaunchDescription
++from launch.actions import OpaqueFunction
++from launch.actions import SetEnvironmentVariable
+ from launch.launch_description_sources import PythonLaunchDescriptionSource
+-from launch.substitutions import PathJoinSubstitution, LaunchConfiguration
++from launch.substitutions import LaunchConfiguration
++from launch.substitutions import PathJoinSubstitution
+ from launch_ros.substitutions import FindPackageShare
+ 
+ 
+ def include_launch_py_description(
+-        pkg_name: SomeSubstitutionsType,
+-        paths: List[SomeSubstitutionsType],
+-        **kwargs) -> Action:
++    pkg_name: SomeSubstitutionsType, paths: List[SomeSubstitutionsType], **kwargs
++) -> Action:
+     """
+     Return IncludeLaunchDescription for the file inside pkg at paths.
+ 
+@@ -41,24 +46,22 @@ def include_launch_py_description(
+     pkg_dir = FindPackageShare(pkg_name)
+     full_path = PathJoinSubstitution([pkg_dir] + paths)
+ 
+-    return IncludeLaunchDescription(
+-        PythonLaunchDescriptionSource(
+-            full_path),
+-        **kwargs)
++    return IncludeLaunchDescription(PythonLaunchDescriptionSource(full_path), **kwargs)
+ 
+ 
+ def include_scoped_launch_py_description(
+-        pkg_name: SomeSubstitutionsType,
+-        paths: List[SomeSubstitutionsType],
+-        launch_arguments: Dict = {},
+-        env_vars: List[SetEnvironmentVariable] = [],
+-        condition: Optional[Condition] = None,
+-        **kwargs) -> Action:
++    pkg_name: SomeSubstitutionsType,
++    paths: List[SomeSubstitutionsType],
++    launch_arguments: Dict = {},
++    env_vars: List[SetEnvironmentVariable] = [],
++    condition: Optional[Condition] = None,
++    **kwargs,
++) -> Action:
+     """
+     Return a GroupAction for the launch file inside pkg at paths.
+ 
+-    The launch file will be scoped and launch arguments or environment variables have to be
+-    explicitly passed on in this function.
++    The launch file is scoped while inheriting the parent's namespace, remaps,
++    arguments and environment. Changes made by the included launch stay local.
+ 
+     Parameters
+     ----------
+@@ -100,7 +103,6 @@ def include_scoped_launch_py_description(
+     arguments_to_declare = []
+     launch_configurations = {}
+     for name, arg_value in launch_arguments.items():
+-
+         if isinstance(arg_value, DeclareLaunchArgument):
+             # Convert to LaunchConfiguration
+             launch_configurations[name] = LaunchConfiguration(arg_value.name)
+@@ -113,16 +115,17 @@ def include_scoped_launch_py_description(
+ 
+     # In case the given launch configuration contain substitutions,
+     # get the launch configs for these substitutions as well.
+-    updated_launch_configs = get_nested_launch_configurations(
+-        launch_configurations)
++    updated_launch_configs = get_nested_launch_configurations(launch_configurations)
+ 
+     # Create the included launch file
+     launch_file = include_launch_py_description(
+-        pkg_name, paths,
+-        launch_arguments=updated_launch_configs.items(),
+-        **kwargs)
++        pkg_name, paths, launch_arguments=updated_launch_configs.items(), **kwargs
++    )
+ 
+-    actions = []
++    # LaunchContext scopes shallow-copy their configuration dictionaries.
++    # Jazzy's SetRemap appends to the inherited ros_remaps list in place; copy
++    # that list at the scope boundary so child remaps cannot affect siblings.
++    actions = [OpaqueFunction(function=isolate_ros_remaps)]
+ 
+     # Add environment variables
+     actions.extend(env_vars)
+@@ -131,20 +134,34 @@ def include_scoped_launch_py_description(
+     # Add the launch file
+     actions.append(launch_file)
+ 
+-    scoped_launch_file = GroupAction(actions,
+-                                     forwarding=False,
+-                                     condition=condition,
+-                                     launch_configurations=updated_launch_configs)
++    scoped_launch_file = GroupAction(
++        actions, forwarding=True, condition=condition, launch_configurations=updated_launch_configs
++    )
+ 
+     return scoped_launch_file
+ 
+ 
++def isolate_ros_remaps(context):
++    """Copy inherited remaps before modifying them in a scoped launch group."""
++    context.launch_configurations['ros_remaps'] = list(
++        context.launch_configurations.get('ros_remaps', [])
++    )
++
++
+ def get_nested_launch_configurations(configuration_list: Dict):
+ 
+     nested_launch_configs = {}
+     nested_launch_configs = nested_launch_configs | configuration_list
+ 
+     for config_value in configuration_list.values():
++        # A LaunchConfiguration is itself a substitution; it has no
++        # `substitutions` collection. Preserve its source name before entering
++        # a non-forwarding scope, including when the destination is renamed.
++        if isinstance(config_value, LaunchConfiguration):
++            nested_launch_configs = {
++                config_value.variable_name[0].text: config_value
++            } | nested_launch_configs
++            continue
+         if not hasattr(config_value, 'substitutions'):
+             continue
+ 
+@@ -152,8 +169,7 @@ def get_nested_launch_configurations(configuration_list: Dict):
+         while substitutions:
+             sub = substitutions.pop()
+             if isinstance(sub, LaunchConfiguration):
+-                nested_launch_configs = {
+-                    sub.variable_name[0].text: sub} | nested_launch_configs
++                nested_launch_configs = {sub.variable_name[0].text: sub} | nested_launch_configs
+ 
+             if hasattr(sub, 'expression'):
+                 substitutions.extend(sub.expression)
+diff --git a/launch_pal/pal_parameters.py b/launch_pal/pal_parameters.py
+index 387f5dc518611fafaf10f541fc4133dca3b19547..af7860a7524d2bde65e9aabc9ecd1bac83437454 100644
+--- a/launch_pal/pal_parameters.py
++++ b/launch_pal/pal_parameters.py
+@@ -13,9 +13,10 @@
+ # limitations under the License.
+ 
+ import collections.abc
+-import yaml
++
+ import ament_index_python as aip
+ from launch.actions import LogInfo
++import yaml
+ 
+ 
+ def get_pal_configuration(pkg, node, ld=None):
+@@ -27,9 +28,9 @@ def get_pal_configuration(pkg, node, ld=None):
+     : param ld: The launch description to log messages to. If None, no messages are logged.
+     : return: A dictionary with the parameters, remappings and arguments
+     """
+-    # code for recursive dictionary update
+-    # taken from https://stackoverflow.com/a/3233356
++
+     def update(d, u):
++        # Recursive merge based on https://stackoverflow.com/a/3233356.
+         for k, v in u.items():
+             if isinstance(v, collections.abc.Mapping):
+                 d[k] = update(d.get(k, {}), v)
+@@ -41,21 +42,27 @@ def get_pal_configuration(pkg, node, ld=None):
+ 
+     cfg_srcs = {}
+     for cfg_srcs_pkg, _ in cfg_srcs_pkgs.items():
+-        cfg_files, _ = aip.get_resource(
+-            f'pal_configuration.{pkg}', cfg_srcs_pkg)
++        cfg_files, _ = aip.get_resource(f'pal_configuration.{pkg}', cfg_srcs_pkg)
+         for cfg_file in cfg_files.strip().split('\n'):
+             share_path = aip.get_package_share_path(cfg_srcs_pkg)
+             path = share_path / cfg_file
+             if not path.exists():
+                 if ld:
+-                    ld.add_action(LogInfo(msg=f'WARNING: configuration file {path} does not exist.'
+-                                          ' Skipping it.'))
++                    ld.add_action(
++                        LogInfo(
++                            msg=f'WARNING: configuration file {path} does not exist. Skipping it.'
++                        )
++                    )
+                 continue
+             if path.name in cfg_srcs:
+                 if ld:
+-                    ld.add_action(LogInfo(msg='WARNING: two packages provide the same'
+-                                          f' configuration {path.name} for {pkg}:'
+-                                          f' {cfg_srcs[path.name]} and {path}. Skipping {path}'))
++                    ld.add_action(
++                        LogInfo(
++                            msg='WARNING: two packages provide the same'
++                            f' configuration {path.name} for {pkg}:'
++                            f' {cfg_srcs[path.name]} and {path}. Skipping {path}'
++                        )
++                    )
+                 continue
+             cfg_srcs[path.name] = path
+ 
+@@ -75,39 +82,58 @@ def get_pal_configuration(pkg, node, ld=None):
+ 
+     if not node_fqn:
+         if ld:
+-            ld.add_action(LogInfo(msg='ERROR: configuration files found, but'
+-                                  f' node {node} has no entry!\nI looked into the following'
+-                                  ' configuration files:'
+-                                  f' {[str(p) for k, p in cfg_srcs.items()]}\n'
+-                                  ' Returning empty parameters/remappings/arguments'))
++            ld.add_action(
++                LogInfo(
++                    msg='ERROR: configuration files found, but'
++                    f' node {node} has no entry!\nI looked into the following'
++                    ' configuration files:'
++                    f' {[str(p) for k, p in cfg_srcs.items()]}\n'
++                    ' Returning empty parameters/remappings/arguments'
++                )
++            )
+         return {'parameters': [], 'remappings': [], 'arguments': []}
+ 
+-    res = {'parameters': [{k: v} for k, v in config[node_fqn].setdefault('ros__parameters', {})
+-                          .items()],
+-           'remappings': config[node_fqn].setdefault('remappings', {}).items(),
+-           'arguments': config[node_fqn].setdefault('arguments', []),
+-           }
++    res = {
++        'parameters': [
++            {k: v} for k, v in config[node_fqn].setdefault('ros__parameters', {}).items()
++        ],
++        'remappings': config[node_fqn].setdefault('remappings', {}).items(),
++        'arguments': config[node_fqn].setdefault('arguments', []),
++    }
+ 
+     if not isinstance(res['arguments'], list):
+         res['arguments'] = []
+         if ld:
+-            ld.add_action(LogInfo(msg='ERROR: \'arguments\' field in configuration'
+-                                  f' for node {node} must be a _list_ of arguments'
+-                                  ' to be passed to the node. Ignoring it.'))
++            ld.add_action(
++                LogInfo(
++                    msg="ERROR: 'arguments' field in configuration"
++                    f' for node {node} must be a _list_ of arguments'
++                    ' to be passed to the node. Ignoring it.'
++                )
++            )
+ 
+     if ld:
+         ld.add_action(
+-            LogInfo(msg=f'Loaded configuration for <{node}> '
+-                    f'from {[str(p) for k, p in cfg_srcs.items()]}'))
++            LogInfo(
++                msg=f'Loaded configuration for <{node}> '
++                f'from {[str(p) for k, p in cfg_srcs.items()]}'
++            )
++        )
+         if res['parameters']:
+-            ld.add_action(LogInfo(msg='Parameters: ' +
+-                                  '\n - '.join([f'{k}: {v}' for d in res['parameters']
+-                                                for k, v in d.items()])))
++            ld.add_action(
++                LogInfo(
++                    msg='Parameters: '
++                    + '\n - '.join([f'{k}: {v}' for d in res['parameters'] for k, v in d.items()])
++                )
++            )
+         if res['remappings']:
+-            ld.add_action(LogInfo(msg='Remappings: ' +
+-                                  '\n - '.join([f'{a} -> {b}' for a, b in res['remappings']])))
++            ld.add_action(
++                LogInfo(
++                    msg='Remappings: '
++                    + '\n - '.join([f'{a} -> {b}' for a, b in res['remappings']])
++                )
++            )
+         if res['arguments']:
+-            ld.add_action(LogInfo(msg='Arguments: ' +
+-                                  '\n - '.join(res['arguments'])))
++            ld.add_action(LogInfo(msg='Arguments: ' + '\n - '.join(res['arguments'])))
+ 
+     return res
+diff --git a/launch_pal/param_utils.py b/launch_pal/param_utils.py
+index 81125bd29ffd13187a5e6de4c1da59bac6fb8c87..d8eec68ade43df59816e6f14f4031b9e5253e32c 100644
+--- a/launch_pal/param_utils.py
++++ b/launch_pal/param_utils.py
+@@ -13,12 +13,14 @@
+ # limitations under the License.
+ 
+ import copy
+-import tempfile
+ import re
+-import yaml
++import tempfile
++from typing import Dict
++from typing import List
++from typing import Text
+ 
+-from typing import Dict, List, Text
+ from ament_index_python.packages import get_package_share_directory
++import yaml
+ 
+ 
+ def _merge_dictionaries(dict1, dict2):
+@@ -41,11 +43,11 @@ def _merge_dictionaries(dict1, dict2):
+ 
+ 
+ def insert_ros_param_prefix(data, prefix):
+-    if type(data) != dict:
++    if not isinstance(data, dict):
+         return data
+ 
+     for k in data.keys():
+-        if k == "ros__parameters":
++        if k == 'ros__parameters':
+             d = {}
+             d[prefix] = copy.deepcopy(data[k])
+             data[k] = d
+@@ -67,20 +69,20 @@ def merge_param_files(yaml_files):
+     """
+     concatenated_dict = {}
+     for e in yaml_files:
+-        if type(e) == str:
++        if isinstance(e, str):
+             yaml_file = e
+             prefix = None
+         else:
+             yaml_file = e[0]
+             prefix = e[1]
+-        data = yaml.safe_load(open(yaml_file, "r"))
++        data = yaml.safe_load(open(yaml_file, 'r'))
+         if prefix:
+             data = insert_ros_param_prefix(data, prefix)
+ 
+         _merge_dictionaries(concatenated_dict, data)
+         # Second arg takes precedence on merge, and result is stored there
+         concatenated_dict = data
+-    rewritten_yaml = tempfile.NamedTemporaryFile(mode="w", delete=False)
++    rewritten_yaml = tempfile.NamedTemporaryFile(mode='w', delete=False)
+     yaml.dump(concatenated_dict, rewritten_yaml)
+     rewritten_yaml.close()
+     return rewritten_yaml.name
+@@ -131,8 +133,7 @@ def _parse_config(path, param_rewrites):
+         if var_name in param_rewrites:
+             return str(param_rewrites[var_name])
+         else:
+-            raise ValueError(
+-                f"Variable {var_name} not defined in param_rewrites.")
++            raise ValueError(f'Variable {var_name} not defined in param_rewrites.')
+ 
+     content = pattern_vars.sub(replace_variables, content)
+ 
+@@ -144,7 +145,7 @@ def _parse_config(path, param_rewrites):
+         if pkg_path:
+             return pkg_path
+         else:
+-            raise ValueError(f"Package path {pkg_name} not found.")
++            raise ValueError(f'Package path {pkg_name} not found.')
+ 
+     content = pattern_pkg.sub(replace_pkg_path, content)
+ 
+@@ -178,7 +179,7 @@ def parse_parametric_yaml(source_files: List[Text], param_rewrites: Dict):
+         Path to the Full YAML file containing all the parameters.
+ 
+     """
+-    rewritten_yaml = tempfile.NamedTemporaryFile(mode="w", delete=False)
++    rewritten_yaml = tempfile.NamedTemporaryFile(mode='w', delete=False)
+     full_yaml = {}
+ 
+     for source_file in source_files:
+diff --git a/launch_pal/robot_arguments/__init__.py b/launch_pal/robot_arguments/__init__.py
+index e142b98773a5e0728d9645ea8230d8c9fb78e96a..102acfeccd4a1b236b4fe339ae930dc983476142 100644
+--- a/launch_pal/robot_arguments/__init__.py
++++ b/launch_pal/robot_arguments/__init__.py
+@@ -15,10 +15,7 @@
+ 
+ """robot_arguments Module."""
+ 
+-from .robot import RobotArgs
+ from .common import CommonArgs
++from .robot import RobotArgs
+ 
+-__all__ = [
+-    'RobotArgs',
+-    'CommonArgs'
+-]
++__all__ = ['RobotArgs', 'CommonArgs']
+diff --git a/launch_pal/robot_arguments/common.py b/launch_pal/robot_arguments/common.py
+index e38347c547a2c36fec3197c3f424003e45e9f450..0b2716ff018a7af913e2fd3e9b0a5a6a3ddd1a66 100644
+--- a/launch_pal/robot_arguments/common.py
++++ b/launch_pal/robot_arguments/common.py
+@@ -13,9 +13,10 @@
+ # limitations under the License.
+ 
+ 
+-from launch.actions import DeclareLaunchArgument
+ from dataclasses import dataclass
+ 
++from launch.actions import DeclareLaunchArgument
++
+ 
+ @dataclass(frozen=True, kw_only=True)
+ class CommonArgs:
+@@ -25,76 +26,102 @@ class CommonArgs:
+         name='use_sim_time',
+         default_value='False',
+         choices=['True', 'False'],
+-        description='Use simulation time.')
++        description='Use simulation time.',
++    )
+     namespace: DeclareLaunchArgument = DeclareLaunchArgument(
+-        name='namespace',
+-        default_value='',
+-        description='Define namespace of the robot.')
++        name='namespace', default_value='', description='Define namespace of the robot.'
++    )
+     robot_name: DeclareLaunchArgument = DeclareLaunchArgument(
+         'robot_name',
+         default_value='pmb2',
+         description='Name of the robot. ',
+-        choices=['pmb2', 'tiago', 'tiago_dual', 'pmb3', 'ari', 'omni_base', 'tiago_pro'])
++        choices=['pmb2', 'tiago', 'tiago_dual', 'pmb3', 'ari', 'omni_base', 'tiago_pro'],
++    )
+     navigation: DeclareLaunchArgument = DeclareLaunchArgument(
+         name='navigation',
+         default_value='False',
+         choices=['True', 'False'],
+-        description='Specify if launching Navigation2.')
++        description='Specify if launching Navigation2.',
++    )
+     advanced_navigation: DeclareLaunchArgument = DeclareLaunchArgument(
+         name='advanced_navigation',
+         default_value='False',
+         choices=['True', 'False'],
+-        description='Specify if launching Advanced Navigation.')
++        description='Specify if launching Advanced Navigation.',
++    )
+     moveit: DeclareLaunchArgument = DeclareLaunchArgument(
+         name='moveit',
+         default_value='True',
+         choices=['True', 'False'],
+-        description='Specify if launching MoveIt 2.')
++        description='Specify if launching MoveIt 2.',
++    )
++    docking: DeclareLaunchArgument = DeclareLaunchArgument(
++        name='docking',
++        default_value='False',
++        choices=['True', 'False'],
++        description='Legacy private-navigation flag; public Nav2 uses its native docking server.',
++    )
++    play_motion: DeclareLaunchArgument = DeclareLaunchArgument(
++        name='play_motion',
++        default_value='True',
++        choices=['True', 'False'],
++        description='Start the play_motion2 server.',
++    )
+     slam: DeclareLaunchArgument = DeclareLaunchArgument(
+-        "slam",
+-        default_value="False",
+-        description="Whether or not you are using SLAM",
++        'slam',
++        default_value='False',
++        description='Whether or not you are using SLAM',
+     )
+     world_name: DeclareLaunchArgument = DeclareLaunchArgument(
+         name='world_name',
+         default_value='pal_office',
+-        description="Specify world name, will be converted to full path.")
++        description='Specify world name, will be converted to full path.',
++    )
++    gzclient: DeclareLaunchArgument = DeclareLaunchArgument(
++        name='gzclient',
++        default_value='True',
++        choices=['True', 'False'],
++        description='Whether to launch the Gazebo Harmonic GUI client.',
++    )
++    rviz: DeclareLaunchArgument = DeclareLaunchArgument(
++        name='rviz',
++        default_value='True',
++        choices=['True', 'False'],
++        description='Launch RViz for navigation.',
++    )
+     is_public_sim: DeclareLaunchArgument = DeclareLaunchArgument(
+         name='is_public_sim',
+         default_value='False',
+         choices=['True', 'False'],
+-        description="Enable public simulation.")
++        description='Enable public simulation.',
++    )
+     use_sensor_manager: DeclareLaunchArgument = DeclareLaunchArgument(
+         name='use_sensor_manager',
+         default_value='False',
+         choices=['True', 'False'],
+-        description='Use moveit_sensor_manager for octomap')
++        description='Use moveit_sensor_manager for octomap',
++    )
+     tuck_arm: DeclareLaunchArgument = DeclareLaunchArgument(
+         name='tuck_arm',
+         default_value='True',
+         choices=['True', 'False'],
+-        description='Launches tuck arm node')
++        description='Launches tuck arm node',
++    )
+     x: DeclareLaunchArgument = DeclareLaunchArgument(
+-        name="x",
+-        description="X pose of the robot",
+-        default_value="0.0")
++        name='x', description='X pose of the robot', default_value='0.0'
++    )
+     y: DeclareLaunchArgument = DeclareLaunchArgument(
+-        name="y",
+-        description="Y pose of the robot",
+-        default_value="0.0")
++        name='y', description='Y pose of the robot', default_value='0.0'
++    )
+     z: DeclareLaunchArgument = DeclareLaunchArgument(
+-        name="z",
+-        description="Z pose of the robot",
+-        default_value="0.0")
++        name='z', description='Z pose of the robot', default_value='0.0'
++    )
+     roll: DeclareLaunchArgument = DeclareLaunchArgument(
+-        name="roll",
+-        description="Roll pose of the robot",
+-        default_value="0.0")
++        name='roll', description='Roll pose of the robot', default_value='0.0'
++    )
+     pitch: DeclareLaunchArgument = DeclareLaunchArgument(
+-        name="pitch",
+-        description="Pitch pose of the robot",
+-        default_value="0.0")
++        name='pitch', description='Pitch pose of the robot', default_value='0.0'
++    )
+     yaw: DeclareLaunchArgument = DeclareLaunchArgument(
+-        name="yaw",
+-        description="Yaw pose of the robot",
+-        default_value="0.0")
++        name='yaw', description='Yaw pose of the robot', default_value='0.0'
++    )
+diff --git a/launch_pal/robot_arguments/robot.py b/launch_pal/robot_arguments/robot.py
+index d14db6348448568ece2e43fd21a801b82633403f..9b96a7fbe1f4f4727094f45f7e96f8b6b5f44df7 100644
+--- a/launch_pal/robot_arguments/robot.py
++++ b/launch_pal/robot_arguments/robot.py
+@@ -14,27 +14,28 @@
+ 
+ 
+ from dataclasses import dataclass
+-from launch.actions import DeclareLaunchArgument as DLA
+ from typing import Optional
++
+ from ament_index_python.packages import get_package_share_directory
++from launch.actions import DeclareLaunchArgument as DLA
+ import yaml
+ 
+ 
+ def create_robot_arg(arg_name: str, robot_name: Optional[str] = None) -> DLA:
+ 
+-    pkg_dir = get_package_share_directory("launch_pal")
++    pkg_dir = get_package_share_directory('launch_pal')
+ 
+     if not robot_name:
+         robot_name = 'robot'
+ 
+-    config_file = f"{pkg_dir}/config/{robot_name}_configuration.yaml"
++    config_file = f'{pkg_dir}/config/{robot_name}_configuration.yaml'
+ 
+     configurations_raw = yaml.load(open(config_file), Loader=yaml.FullLoader)[
+-        f"{robot_name}_configuration"]
++        f'{robot_name}_configuration'
++    ]
+ 
+     if arg_name not in configurations_raw.keys():
+-        raise KeyError(
+-            f"Robot argument {arg_name} does not seem to exist in config {config_file}")
++        raise KeyError(f'Robot argument {arg_name} does not seem to exist in config {config_file}')
+ 
+     description = configurations_raw[arg_name]['description']
+     default_value = None
+@@ -44,10 +45,9 @@ def create_robot_arg(arg_name: str, robot_name: Optional[str] = None) -> DLA:
+         default_value = configurations_raw[arg_name]['default_value']
+         choices = configurations_raw[arg_name]['choices']
+ 
+-    return DLA(name=arg_name,
+-               description=description,
+-               default_value=default_value,
+-               choices=choices)
++    return DLA(
++        name=arg_name, description=description, default_value=default_value, choices=choices
++    )
+ 
+ 
+ @dataclass(frozen=True)
+diff --git a/launch_pal/robot_utils.py b/launch_pal/robot_utils.py
+index 7c9a70febb9d62a10ce2eb2205b2d11d6b19f301..3a0ec0b89563e92631374b1a85dc4a49e6a83f1c 100644
+--- a/launch_pal/robot_utils.py
++++ b/launch_pal/robot_utils.py
+@@ -20,7 +20,8 @@ def get_robot_name(default_robot_name='pmb2'):
+         'robot_name',
+         default_value=default_robot_name,
+         description='Name of the robot. ',
+-        choices=['pmb2', 'tiago', 'tiago_dual', 'pmb3', 'ari', 'omni_base', 'tiago_pro'])
++        choices=['pmb2', 'tiago', 'tiago_dual', 'pmb3', 'ari', 'omni_base', 'tiago_pro'],
++    )
+ 
+     return declare_robot_name
+ 
+@@ -31,11 +32,11 @@ def get_wheel_model(robot):
+             'wheel_model',
+             default_value='moog',
+             description='Wheel model, ',
+-            choices=['nadia', 'moog'])
++            choices=['nadia', 'moog'],
++        )
+ 
+     else:
+-        raise ValueError('The robot ' + robot +
+-                         ' has not the argument wheel_model')
++        raise ValueError('The robot ' + robot + ' has not the argument wheel_model')
+ 
+     return declare_wheel_model
+ 
+@@ -46,7 +47,8 @@ def get_laser_model(robot):
+             'laser_model',
+             default_value='sick-571',
+             description='Base laser model. ',
+-            choices=['no-laser', 'sick-571', 'sick-561', 'sick-551', 'hokuyo'])
++            choices=['no-laser', 'sick-571', 'sick-561', 'sick-551', 'hokuyo'],
++        )
+     elif robot == 'ari':
+         declare_laser_model = DeclareLaunchArgument(
+             'laser_model',
+@@ -56,34 +58,34 @@ def get_laser_model(robot):
+         )
+ 
+     else:
+-        raise ValueError('The robot ' + robot +
+-                         ' has not the argument laser_model')
++        raise ValueError('The robot ' + robot + ' has not the argument laser_model')
+ 
+     return declare_laser_model
+ 
+ 
+ def get_courier_rgbd_sensors(robot):
+-    if (robot == 'pmb2'):
++    if robot == 'pmb2':
+         declare_courier_rgbd_sensors = DeclareLaunchArgument(
+             'courier_rgbd_sensors',
+             default_value='False',
+             description='Whether the base has RGBD sensors or not. ',
+-            choices=['True', 'False'])
++            choices=['True', 'False'],
++        )
+ 
+     else:
+-        raise ValueError('The robot ' + robot +
+-                         ' has not the argument courier_rgbd_sensors')
++        raise ValueError('The robot ' + robot + ' has not the argument courier_rgbd_sensors')
+ 
+     return declare_courier_rgbd_sensors
+ 
+ 
+ def get_arm(robot):
+-    if (robot == 'tiago'):
++    if robot == 'tiago':
+         declare_arm = DeclareLaunchArgument(
+             'arm',
+             default_value='tiago-arm',
+             description='Which type of arm TIAGo has. ',
+-            choices=['no-arm', 'tiago-arm'])
++            choices=['no-arm', 'tiago-arm'],
++        )
+ 
+     else:
+         raise ValueError('The robot ' + robot + ' has not the argument arm')
+@@ -92,28 +94,35 @@ def get_arm(robot):
+ 
+ 
+ def get_wrist_model(robot):
+-    if (robot == 'tiago'):
++    if robot == 'tiago':
+         declare_wrist_model = DeclareLaunchArgument(
+             'wrist_model',
+             default_value='wrist-2010',
+             description='Wrist model. ',
+-            choices=['wrist-2010', 'wrist-2017'])
++            choices=['wrist-2010', 'wrist-2017'],
++        )
+ 
+     else:
+-        raise ValueError('The robot ' + robot +
+-                         ' has not the argument wrist_model')
++        raise ValueError('The robot ' + robot + ' has not the argument wrist_model')
+ 
+     return declare_wrist_model
+ 
+ 
+ def get_end_effector(robot):
+-    if (robot == 'tiago'):
++    if robot == 'tiago':
+         declare_end_effector = DeclareLaunchArgument(
+             'end_effector',
+             default_value='pal-gripper',
+             description='End effector model.',
+-            choices=['pal-gripper', 'pal-hey5', 'custom', 'no-end-effector', 'robotiq-2f-85',
+-                     'robotiq-2f-140'])
++            choices=[
++                'pal-gripper',
++                'pal-hey5',
++                'custom',
++                'no-end-effector',
++                'robotiq-2f-85',
++                'robotiq-2f-140',
++            ],
++        )
+ 
+     elif robot == 'ari':
+         declare_end_effector = DeclareLaunchArgument(
+@@ -123,40 +132,41 @@ def get_end_effector(robot):
+             choices=['ari-hand', 'no-hand'],  # ARIv2 does not have a hand DoF
+         )
+     else:
+-        raise ValueError('The robot ' + robot +
+-                         ' has not the argument end_effector')
++        raise ValueError('The robot ' + robot + ' has not the argument end_effector')
+ 
+     return declare_end_effector
+ 
+ 
+ def get_ft_sensor(robot):
+-    if (robot == 'tiago'):
++    if robot == 'tiago':
+         declare_ft_sensor = DeclareLaunchArgument(
+             'ft_sensor',
+             default_value='schunk-ft',
+             description='FT sensor model. ',
+-            choices=['schunk-ft', 'no-ft-sensor'])
++            choices=['schunk-ft', 'no-ft-sensor'],
++        )
+ 
+     else:
+-        raise ValueError('The robot ' + robot +
+-                         ' has not the argument ft_sensor')
++        raise ValueError('The robot ' + robot + ' has not the argument ft_sensor')
+ 
+     return declare_ft_sensor
+ 
+ 
+ def get_camera_model(robot):
+-    if (robot == 'tiago'):
++    if robot == 'tiago':
+         declare_camera_model = DeclareLaunchArgument(
+             'camera_model',
+             default_value='orbbec-astra',
+             description='Head camera model. ',
+-            choices=['no-camera', 'orbbec-astra', 'orbbec-astra-pro', 'asus-xtion'])
+-    elif (robot == 'pmb3'):
++            choices=['no-camera', 'orbbec-astra', 'orbbec-astra-pro', 'asus-xtion'],
++        )
++    elif robot == 'pmb3':
+         declare_camera_model = DeclareLaunchArgument(
+             'camera_model',
+             default_value='realsense-d435',
+             description='Base cameras model',
+-            choices=['realsense-d435'])
++            choices=['realsense-d435'],
++        )
+     elif robot == 'ari':
+         declare_camera_model = DeclareLaunchArgument(
+             'camera_model',
+@@ -165,8 +175,7 @@ def get_camera_model(robot):
+             choices=['raspi', 'realsense-d435'],
+         )
+     else:
+-        raise ValueError('The robot ' + robot +
+-                         ' has not the argument camera_model')
++        raise ValueError('The robot ' + robot + ' has not the argument camera_model')
+ 
+     return declare_camera_model
+ 
+@@ -176,11 +185,10 @@ def get_robot_model(robot):
+         declare_robot_model = DeclareLaunchArgument(
+             'robot_model',
+             default_value='v2',
+-            description='ARI\'s version. ',
++            description="ARI's version. ",
+             choices=['v1', 'v2'],
+         )
+     else:
+-        raise ValueError('The robot ' + robot +
+-                         ' has not the argument robot_model')
++        raise ValueError('The robot ' + robot + ' has not the argument robot_model')
+ 
+     return declare_robot_model
+diff --git a/launch_pal/substitutions/load_file.py b/launch_pal/substitutions/load_file.py
+index 360a15304926427b6b4c42e527c217cf8195f369..d8fb064ad5d0ec8e62c7dae32d79ce01bc48da68 100644
+--- a/launch_pal/substitutions/load_file.py
++++ b/launch_pal/substitutions/load_file.py
+@@ -18,8 +18,9 @@ from typing import Text
+ from launch.launch_context import LaunchContext
+ from launch.some_substitutions_type import SomeSubstitutionsType
+ from launch.substitution import Substitution
+-from launch.utilities import (ensure_argument_type, normalize_to_list_of_substitutions,
+-                              perform_substitutions)
++from launch.utilities import ensure_argument_type
++from launch.utilities import normalize_to_list_of_substitutions
++from launch.utilities import perform_substitutions
+ 
+ 
+ class LoadFile(Substitution):
+@@ -29,11 +30,7 @@ class LoadFile(Substitution):
+         """Create a LoadFile substitution."""
+         super().__init__()
+ 
+-        ensure_argument_type(
+-            file_path,
+-            (str, Substitution, Iterable),
+-            'file_path',
+-            'LoadFile')
++        ensure_argument_type(file_path, (str, Substitution, Iterable), 'file_path', 'LoadFile')
+ 
+         self.file_path = normalize_to_list_of_substitutions(file_path)
+ 
+diff --git a/setup.py b/setup.py
+index fcf32a0409eb7273448bd66c394debdf33befb8b..8c16f4c589178d5ee13996edc8ad488ccb12cf75 100644
+--- a/setup.py
++++ b/setup.py
+@@ -1,7 +1,9 @@
+-from setuptools import find_packages
+-from setuptools import setup
+ from glob import glob
+ import os
++
++from setuptools import find_packages
++from setuptools import setup
++
+ package_name = 'launch_pal'
+ 
+ setup(
+@@ -9,21 +11,18 @@ setup(
+     version='0.1.15',
+     packages=find_packages(exclude=['test']),
+     data_files=[
+-        ('share/ament_index/resource_index/packages',
+-            ['resource/' + package_name]),
++        ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
+         ('share/' + package_name, ['package.xml']),
+         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
+     ],
+     install_requires=['setuptools'],
+     zip_safe=True,
+     maintainer=['Jordan Palacios', 'Noel Jimenez'],
+-    maintainer_email=['jordan.palacios@pal-robotics.com',
+-                      'noel.jimenez@pal-robotics.com'],
++    maintainer_email=['jordan.palacios@pal-robotics.com', 'noel.jimenez@pal-robotics.com'],
+     description='Launch utilities needed by PAL Robotics software',
+     license='Apache License, Version 2.0',
+     tests_require=['pytest'],
+     entry_points={
+-        'console_scripts': [
+-        ],
++        'console_scripts': [],
+     },
+ )
+diff --git a/test/test_flake8.py b/test/test_flake8.py
+index 27ee1078ff077cc3a0fec75b7d023101a68164d1..d0d8a7049dda0850ad678a690fbbd11fa550e495 100644
+--- a/test/test_flake8.py
++++ b/test/test_flake8.py
+@@ -20,6 +20,4 @@ import pytest
+ @pytest.mark.linter
+ def test_flake8():
+     rc, errors = main_with_errors(argv=[])
+-    assert rc == 0, \
+-        'Found %d code style errors / warnings:\n' % len(errors) + \
+-        '\n'.join(errors)
++    assert rc == 0, 'Found %d code style errors / warnings:\n' % len(errors) + '\n'.join(errors)
+diff --git a/test/test_include_utils.py b/test/test_include_utils.py
+index 90758685474c5621525513b51ae104c57b0e4f88..57ebe2cd866e0c0b891bbf47a92374a6361a5c9b 100644
+--- a/test/test_include_utils.py
++++ b/test/test_include_utils.py
+@@ -13,22 +13,24 @@
+ # limitations under the License.
+ 
+ 
+-import unittest
+ import os
+-from launch_pal.include_utils import include_launch_py_description
+-from launch_pal.include_utils import include_scoped_launch_py_description
++import unittest
++
++from launch.actions import DeclareLaunchArgument
++from launch.actions import IncludeLaunchDescription
++from launch.actions import SetEnvironmentVariable
+ from launch.launch_context import LaunchContext
+ from launch.substitutions import LaunchConfiguration
+-from launch.actions import DeclareLaunchArgument, SetEnvironmentVariable, IncludeLaunchDescription
++from launch_pal.include_utils import include_launch_py_description
++from launch_pal.include_utils import include_scoped_launch_py_description
+ from launch_ros.substitutions import FindPackageShare
+ 
+ 
+ class TestIncludeLaunch(unittest.TestCase):
+-
+     def test_include_python_file(self):
+         context = LaunchContext()
+ 
+-        pkg_name = "launch_pal"
++        pkg_name = 'launch_pal'
+         file_path = ['launch', 'test.launch.py']
+         launch_arguments = {'arg_1': 'value_1'}
+ 
+@@ -36,96 +38,96 @@ class TestIncludeLaunch(unittest.TestCase):
+         folder_path = pkg_folder.perform(context)
+ 
+         launch_file = include_launch_py_description(
+-            pkg_name=pkg_name, paths=file_path, launch_arguments=launch_arguments.items())
++            pkg_name=pkg_name, paths=file_path, launch_arguments=launch_arguments.items()
++        )
+ 
+         lds = launch_file.launch_description_source
+         path_substitution = lds._LaunchDescriptionSource__location[0]
+ 
+         # Assert path is correct
+-        self.assertEqual(path_substitution.perform(
+-            context), os.path.join(folder_path, *file_path))
++        self.assertEqual(path_substitution.perform(context), os.path.join(folder_path, *file_path))
+ 
+         # Assert launch arguments are passed on correct
+-        self.assertEqual(tuple(launch_arguments.items()),
+-                         launch_file.launch_arguments)
++        self.assertEqual(tuple(launch_arguments.items()), launch_file.launch_arguments)
+ 
+         return
+ 
+     def test_include_python_file_with_args(self):
+-        pkg_name = "launch_pal"
++        pkg_name = 'launch_pal'
+         file_path = ['launch', 'test.launch.py']
+         launch_arguments = {'arg_1': 'value_1'}
+ 
+         launch_file = include_launch_py_description(
+-            pkg_name=pkg_name, paths=file_path, launch_arguments=launch_arguments.items())
++            pkg_name=pkg_name, paths=file_path, launch_arguments=launch_arguments.items()
++        )
+ 
+         # Assert launch arguments are passed on correct
+-        self.assertEqual(tuple(launch_arguments.items()),
+-                         launch_file.launch_arguments)
++        self.assertEqual(tuple(launch_arguments.items()), launch_file.launch_arguments)
+ 
+         return
+ 
+     def test_include_scoped_python_file(self):
+ 
+-        pkg_name = "launch_pal"
++        pkg_name = 'launch_pal'
+         file_path = ['launch', 'test.launch.py']
+ 
+         # Create scoped launch file
+         scoped_launch_file = include_scoped_launch_py_description(
+-            pkg_name=pkg_name,
+-            paths=file_path)
++            pkg_name=pkg_name, paths=file_path
++        )
+ 
+-        # Assert scoping is true, but forwarding is false
++        # ROS namespace and remapping context must reach nested launch files.
+         self.assertTrue(scoped_launch_file._GroupAction__scoped)
+-        self.assertFalse(scoped_launch_file._GroupAction__forwarding)
++        self.assertTrue(scoped_launch_file._GroupAction__forwarding)
+ 
+         scoped_actions = scoped_launch_file._GroupAction__actions
+         # final action should be the launch file
+         nested_launch_file = scoped_actions[-1]
+ 
+         # Assert that final action is the included launch file
+-        self.assertTrue(isinstance(
+-            nested_launch_file, IncludeLaunchDescription))
++        self.assertTrue(isinstance(nested_launch_file, IncludeLaunchDescription))
+ 
+         return
+ 
+     def test_include_scoped_python_file_with_args(self):
+ 
+-        pkg_name = "launch_pal"
++        pkg_name = 'launch_pal'
+         file_path = ['launch', 'test.launch.py']
+ 
+-        arg_4 = DeclareLaunchArgument(name='arg_4', default_value="value_4")
+-        arg_e = DeclareLaunchArgument(name='arg_e', default_value="value_5")
++        arg_4 = DeclareLaunchArgument(name='arg_4', default_value='value_4')
++        arg_e = DeclareLaunchArgument(name='arg_e', default_value='value_5')
+ 
+         # Create launch arguments two cases of remapping
+-        launch_arguments = {'arg_1': 'value_1',
+-                            'arg_2': LaunchConfiguration('arg_2'),
+-                            'arg_3': LaunchConfiguration('arg_c'),
+-                            'arg_4': arg_4,
+-                            'arg_5': arg_e}
++        launch_arguments = {
++            'arg_1': 'value_1',
++            'arg_2': LaunchConfiguration('arg_2'),
++            'arg_3': LaunchConfiguration('arg_c'),
++            'arg_4': arg_4,
++            'arg_5': arg_e,
++        }
+ 
+         # Create environment variable
+-        env_var = SetEnvironmentVariable("ENV_TEST", 'value')
++        env_var = SetEnvironmentVariable('ENV_TEST', 'value')
+ 
+         # Create scoped launch file
+         scoped_launch_file = include_scoped_launch_py_description(
+             pkg_name=pkg_name,
+             paths=file_path,
+             launch_arguments=launch_arguments,
+-            env_vars=[env_var])
++            env_vars=[env_var],
++        )
+ 
+         # Get the scoped actions
+         scoped_actions = scoped_launch_file._GroupAction__actions
+         nested_launch_file = scoped_actions[-1]
+ 
+         # Assert environment variable is in the scoped action
+-        self.assertEqual(env_var, scoped_actions[0])
++        self.assertEqual(env_var, scoped_actions[1])
+         # Assert that remapped declared argument is in the scoped action
+-        self.assertEqual(arg_e, scoped_actions[1])
++        self.assertEqual(arg_e, scoped_actions[2])
+ 
+         # Assert that final action is the included launch file
+-        self.assertTrue(isinstance(
+-            nested_launch_file, IncludeLaunchDescription))
++        self.assertTrue(isinstance(nested_launch_file, IncludeLaunchDescription))
+ 
+         # get launch arguments
+         nested_launch_args = dict(nested_launch_file.launch_arguments)
+@@ -134,26 +136,17 @@ class TestIncludeLaunch(unittest.TestCase):
+         self.assertDictEqual(nested_launch_args, grouped_launch_args)
+ 
+         # Check types of arguments
+-        self.assertTrue(isinstance(
+-            nested_launch_args['arg_1'], str))
+-        self.assertTrue(isinstance(
+-            nested_launch_args['arg_2'], LaunchConfiguration))
+-        self.assertTrue(isinstance(
+-            nested_launch_args['arg_3'], LaunchConfiguration))
+-        self.assertTrue(isinstance(
+-            nested_launch_args['arg_4'], LaunchConfiguration))
+-        self.assertTrue(isinstance(
+-            nested_launch_args['arg_5'], LaunchConfiguration))
++        self.assertTrue(isinstance(nested_launch_args['arg_1'], str))
++        self.assertTrue(isinstance(nested_launch_args['arg_2'], LaunchConfiguration))
++        self.assertTrue(isinstance(nested_launch_args['arg_3'], LaunchConfiguration))
++        self.assertTrue(isinstance(nested_launch_args['arg_4'], LaunchConfiguration))
++        self.assertTrue(isinstance(nested_launch_args['arg_5'], LaunchConfiguration))
+ 
+         # Check values of arguments
+         self.assertEqual(nested_launch_args['arg_1'], 'value_1')
+-        self.assertEqual(
+-            nested_launch_args['arg_2'].variable_name[0].text, 'arg_2')
+-        self.assertEqual(
+-            nested_launch_args['arg_3'].variable_name[0].text, 'arg_c')
+-        self.assertEqual(
+-            nested_launch_args['arg_4'].variable_name[0].text, 'arg_4')
+-        self.assertEqual(
+-            nested_launch_args['arg_5'].variable_name[0].text, 'arg_e')
++        self.assertEqual(nested_launch_args['arg_2'].variable_name[0].text, 'arg_2')
++        self.assertEqual(nested_launch_args['arg_3'].variable_name[0].text, 'arg_c')
++        self.assertEqual(nested_launch_args['arg_4'].variable_name[0].text, 'arg_4')
++        self.assertEqual(nested_launch_args['arg_5'].variable_name[0].text, 'arg_e')
+ 
+         return
+diff --git a/test/test_pal_parameters.py b/test/test_pal_parameters.py
+index 2c0feaf1f4d7c5c4bfdecf9fe3f6997a211ed687..4767b8736d85a59149a1b28fda4b2798c780e8eb 100644
+--- a/test/test_pal_parameters.py
++++ b/test/test_pal_parameters.py
+@@ -12,12 +12,12 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
+-import unittest
+ import os
++import unittest
++
+ from launch_pal.pal_parameters import get_pal_configuration
+ 
+-os.environ['AMENT_PREFIX_PATH'] = os.path.join(
+-    os.getcwd(), 'test', 'mock_rosroot_pal_parameters')
++os.environ['AMENT_PREFIX_PATH'] = os.path.join(os.getcwd(), 'test', 'mock_rosroot_pal_parameters')
+ 
+ 
+ class TestPalGetConfiguration(unittest.TestCase):
+@@ -30,7 +30,7 @@ class TestPalGetConfiguration(unittest.TestCase):
+                 {'param1': 'base value'},
+                 {'param2': 'robot-cfg value'},
+                 {'param3': 'test-cfg value'},
+-            ]
++            ],
+         )
+ 
+         self.assertCountEqual(
+@@ -39,7 +39,7 @@ class TestPalGetConfiguration(unittest.TestCase):
+                 ('remap1', '/robot-remap'),
+                 ('remap2', '/test-remap'),
+                 ('remap3', '/robot-remap'),
+-            ]
++            ],
+         )
+ 
+ 
+diff --git a/test/test_param_utils.py b/test/test_param_utils.py
+index 8a25d4b3d63c7ea3786faacd861df49a559efa40..b25eb34c05ec042225016518efc808f8ae4f7328 100644
+--- a/test/test_param_utils.py
++++ b/test/test_param_utils.py
+@@ -12,63 +12,60 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
+-import unittest
+-import yaml
+ import os
+ from typing import Dict
++import unittest
++
+ from launch_pal.param_utils import parse_parametric_yaml
++import yaml
+ 
+ 
+ class TestParseParametricYaml(unittest.TestCase):
+     def test_param_substitution(self):
+-        parametric_yaml = os.path.join(os.getcwd(), "test", "parametric.yaml")
+-        parametric_variables = {"name": "John", "age": 42, "married": True}
+-        rewritten_yaml = parse_parametric_yaml(
+-            [parametric_yaml], parametric_variables
+-        )
++        parametric_yaml = os.path.join(os.getcwd(), 'test', 'parametric.yaml')
++        parametric_variables = {'name': 'John', 'age': 42, 'married': True}
++        rewritten_yaml = parse_parametric_yaml([parametric_yaml], parametric_variables)
+         self.assertTrue(rewritten_yaml)
+ 
+-        with open(rewritten_yaml, "r") as params_yaml:
++        with open(rewritten_yaml, 'r') as params_yaml:
+             params: Dict = yaml.safe_load(params_yaml)
+             self.assertEqual(len(params), 4)
+-            self.assertTrue("name" in params)
+-            self.assertTrue("surname" in params)
+-            self.assertTrue("age" in params)
+-            self.assertTrue("married" in params)
+-            self.assertEqual(params["name"], parametric_variables["name"])
+-            self.assertEqual(params["surname"], "Doe")
+-            self.assertEqual(params["age"], parametric_variables["age"])
+-            self.assertEqual(params["married"], parametric_variables["married"])
++            self.assertTrue('name' in params)
++            self.assertTrue('surname' in params)
++            self.assertTrue('age' in params)
++            self.assertTrue('married' in params)
++            self.assertEqual(params['name'], parametric_variables['name'])
++            self.assertEqual(params['surname'], 'Doe')
++            self.assertEqual(params['age'], parametric_variables['age'])
++            self.assertEqual(params['married'], parametric_variables['married'])
+ 
+     def test_params_merge(self):
+-        parametric_yaml = os.path.join(os.getcwd(), "test", "parametric.yaml")
+-        other_parametric_yaml = os.path.join(
+-            os.getcwd(), "test", "other_parametric.yaml"
+-        )
++        parametric_yaml = os.path.join(os.getcwd(), 'test', 'parametric.yaml')
++        other_parametric_yaml = os.path.join(os.getcwd(), 'test', 'other_parametric.yaml')
+         parametric_variables = {
+-            "name": "John",
+-            "surname": "Black",
+-            "age": 42,
+-            "married": False,
+-            "weight": 70.3,
++            'name': 'John',
++            'surname': 'Black',
++            'age': 42,
++            'married': False,
++            'weight': 70.3,
+         }
+         rewritten_yaml = parse_parametric_yaml(
+             [parametric_yaml, other_parametric_yaml], parametric_variables
+         )
+         self.assertTrue(rewritten_yaml)
+ 
+-        with open(rewritten_yaml, "r") as params_yaml:
++        with open(rewritten_yaml, 'r') as params_yaml:
+             params: Dict = yaml.safe_load(params_yaml)
+             self.assertEqual(len(params), 6)
+-            self.assertTrue("name" in params)
+-            self.assertTrue("surname" in params)
+-            self.assertTrue("age" in params)
+-            self.assertTrue("married" in params)
+-            self.assertTrue("birthday" in params)
+-            self.assertTrue("weight" in params)
+-            self.assertEqual(params["name"], parametric_variables["name"])
+-            self.assertEqual(params["surname"], parametric_variables["surname"])
+-            self.assertEqual(params["age"], parametric_variables["age"])
+-            self.assertEqual(params["married"], parametric_variables["married"])
+-            self.assertEqual(params["birthday"], "01/01/1970")
+-            self.assertEqual(params["weight"], parametric_variables["weight"])
++            self.assertTrue('name' in params)
++            self.assertTrue('surname' in params)
++            self.assertTrue('age' in params)
++            self.assertTrue('married' in params)
++            self.assertTrue('birthday' in params)
++            self.assertTrue('weight' in params)
++            self.assertEqual(params['name'], parametric_variables['name'])
++            self.assertEqual(params['surname'], parametric_variables['surname'])
++            self.assertEqual(params['age'], parametric_variables['age'])
++            self.assertEqual(params['married'], parametric_variables['married'])
++            self.assertEqual(params['birthday'], '01/01/1970')
++            self.assertEqual(params['weight'], parametric_variables['weight'])
+diff --git a/launch_pal/urdf_utils.py b/launch_pal/urdf_utils.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..622ae1abfa4a6b7185a9f64dfb960147be0708f1
+--- /dev/null
++++ b/launch_pal/urdf_utils.py
+@@ -0,0 +1,35 @@
++# Copyright 2026 TIAGo Jazzy port contributors
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++"""Prepare physics descriptions while preserving the public ROS robot model."""
++
++import xml.etree.ElementTree as ET
++
++
++def harmonic_spawn_description(description):
++    """Avoid duplicate mimic constraints and DART zero-stop motor locking."""
++    root = ET.fromstring(description)
++    for joint in root.findall('joint'):
++        # gz_ros2_control implements mimic joints; DART must not duplicate them.
++        for mimic in joint.findall('mimic'):
++            joint.remove(mimic)
++        # Keep controller/MoveIt limits unchanged. Only the physics description
++        # receives clearance so a motor can move away from a zero hard stop.
++        limit = joint.find('limit')
++        if limit is not None:
++            if float(limit.get('lower', '-1')) == 0.0:
++                limit.set('lower', '-0.0001')
++            if float(limit.get('upper', '1')) == 0.0:
++                limit.set('upper', '0.0001')
++    return ET.tostring(root, encoding='unicode')
+diff --git a/test/test_renamed_launch_configuration.py b/test/test_renamed_launch_configuration.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..4026c535308d148653e93efc0c26b39f971c1431
+--- /dev/null
++++ b/test/test_renamed_launch_configuration.py
+@@ -0,0 +1,40 @@
++# Copyright 2026 TIAGo Jazzy port contributors
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++from launch.actions import ResetLaunchConfigurations
++from launch.launch_context import LaunchContext
++from launch.substitutions import LaunchConfiguration
++from launch_pal.include_utils import get_nested_launch_configurations
++from launch_pal.include_utils import isolate_ros_remaps
++
++
++def test_renamed_launch_configuration_preserves_explicit_false():
++    context = LaunchContext()
++    context.launch_configurations['moveit'] = 'False'
++    configurations = get_nested_launch_configurations(
++        {'play_motion': LaunchConfiguration('moveit')}
++    )
++    ResetLaunchConfigurations(configurations).execute(context)
++    assert context.launch_configurations == {'moveit': 'False', 'play_motion': 'False'}
++
++
++def test_child_remaps_do_not_mutate_parent_scope():
++    context = LaunchContext()
++    parent = [('/tf', 'tf')]
++    context.launch_configurations['ros_remaps'] = parent
++    context._push_launch_configurations()
++    isolate_ros_remaps(context)
++    context.launch_configurations['ros_remaps'].append(('/map', 'map'))
++    context._pop_launch_configurations()
++    assert context.launch_configurations['ros_remaps'] == [('/tf', 'tf')]
++    assert parent == [('/tf', 'tf')]

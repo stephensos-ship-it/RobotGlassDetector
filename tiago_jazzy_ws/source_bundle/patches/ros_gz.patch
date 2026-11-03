@@ -1,0 +1,164 @@
+diff --git a/ros_gz_bridge/include/ros_gz_bridge/ros_gz_bridge.hpp b/ros_gz_bridge/include/ros_gz_bridge/ros_gz_bridge.hpp
+index 735cdecced332fdf5ab1c0dcae32618cf0e5378c..cdbad13b5e6a2d5f8daad63bbc5d4af5c49a60de 100644
+--- a/ros_gz_bridge/include/ros_gz_bridge/ros_gz_bridge.hpp
++++ b/ros_gz_bridge/include/ros_gz_bridge/ros_gz_bridge.hpp
+@@ -16,12 +16,14 @@
+ #define ROS_GZ_BRIDGE__ROS_GZ_BRIDGE_HPP_
+ 
+ #include <memory>
++#include <mutex>
+ #include <string>
+ #include <vector>
+ 
+ #include <gz/msgs/config.hh>
+ #include <gz/transport/Node.hh>
+ #include <rclcpp/node.hpp>
++#include <rclcpp/context.hpp>
+ #include "ros_gz_bridge/bridge_config.hpp"
+ 
+ namespace ros_gz_bridge
+@@ -36,6 +38,10 @@ public:
+   /// \brief Constructor
+   /// \param[in] options options control creation of the ROS 2 node
+   explicit RosGzBridge(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
++  ~RosGzBridge() override;
++
++  /// \brief Disconnect transport before ROS context and publisher teardown.
++  void stop();
+ 
+   /// \brief Add a new ROS-GZ bridge to the node
+   /// \param[in] config Parameters to control creation of a new bridge
+@@ -68,6 +74,8 @@ protected:
+ 
+   /// \brief Timer to control periodic callback
+   rclcpp::TimerBase::SharedPtr heartbeat_timer_;
++  std::recursive_mutex bridge_mutex_;
++  rclcpp::PreShutdownCallbackHandle shutdown_handle_;
+ };
+ }  // namespace ros_gz_bridge
+ 
+diff --git a/ros_gz_bridge/package.xml b/ros_gz_bridge/package.xml
+index f0f462e79236a42d91fdcaef5f726e8754649c67..2eba6da8f8f5ab63be0a5470ec6278aabb9a334b 100644
+--- a/ros_gz_bridge/package.xml
++++ b/ros_gz_bridge/package.xml
+@@ -1,5 +1,4 @@
+ <?xml version="1.0"?>
+-<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+ <package format="3">
+   <name>ros_gz_bridge</name>
+   <version>1.0.24</version>
+diff --git a/ros_gz_bridge/src/bridge_handle.hpp b/ros_gz_bridge/src/bridge_handle.hpp
+index 6ba1261cd0351ac549684d2a1de8018b4f09c541..4d9b3a4bea7a89cff62e5bd2628e28a32179da62 100644
+--- a/ros_gz_bridge/src/bridge_handle.hpp
++++ b/ros_gz_bridge/src/bridge_handle.hpp
+@@ -53,6 +53,13 @@ public:
+   /// created.
+   void Start();
+ 
++  /// \brief Release transport callbacks before their publishers and factories.
++  void Stop()
++  {
++    StopSubscriber();
++    gz_node_.reset();
++  }
++
+   /// \brief Spin the bridge, checking for new subscriptions on the output.
+   ///
+   /// Not necessary if the Bridge isn't lazy
+diff --git a/ros_gz_bridge/src/ros_gz_bridge.cpp b/ros_gz_bridge/src/ros_gz_bridge.cpp
+index b676190f4af9eb4cd1424f3522e0575f9a645b3f..e5341d4cb929353ef2accf8cdaf27d0141f9d7fa 100644
+--- a/ros_gz_bridge/src/ros_gz_bridge.cpp
++++ b/ros_gz_bridge/src/ros_gz_bridge.cpp
+@@ -115,10 +115,33 @@ RosGzBridge::RosGzBridge(const rclcpp::NodeOptions & options)
+   heartbeat_timer_ = this->create_wall_timer(
+     std::chrono::milliseconds(heartbeat),
+     std::bind(&RosGzBridge::spin, this));
++  shutdown_handle_ = this->get_node_base_interface()->get_context()->add_pre_shutdown_callback(
++    [this]() {this->stop();});
++}
++
++RosGzBridge::~RosGzBridge()
++{
++  this->get_node_base_interface()->get_context()->remove_pre_shutdown_callback(shutdown_handle_);
++  stop();
++}
++
++void RosGzBridge::stop()
++{
++  std::lock_guard<std::recursive_mutex> lock(bridge_mutex_);
++  heartbeat_timer_.reset();
++  for (auto & bridge : handles_) {
++    bridge->Stop();
++  }
++  services_.clear();
++  // Destroy transport while handle factories and ROS publishers still exist.
++  gz_node_.reset();
++  // Break the node -> handle -> node shared_ptr ownership cycle explicitly.
++  handles_.clear();
+ }
+ 
+ void RosGzBridge::spin()
+ {
++  std::lock_guard<std::recursive_mutex> lock(bridge_mutex_);
+   if (handles_.empty()) {
+     std::string config_file;
+     this->get_parameter("config_file", config_file);
+@@ -237,6 +260,7 @@ void RosGzBridge::spin()
+ 
+ void RosGzBridge::add_bridge(const BridgeConfig & config)
+ {
++  std::lock_guard<std::recursive_mutex> lock(bridge_mutex_);
+   bool gz_to_ros = false;
+   bool ros_to_gz = false;
+ 
+@@ -302,6 +326,7 @@ void RosGzBridge::add_service_bridge(
+   const std::string & gz_rep_type_name,
+   const std::string & service_name)
+ {
++  std::lock_guard<std::recursive_mutex> lock(bridge_mutex_);
+   try {
+     RCLCPP_INFO(
+       this->get_logger(),
+diff --git a/ros_gz_bridge/test/test_gid_filtering.cpp b/ros_gz_bridge/test/test_gid_filtering.cpp
+index 3067530ee1f867eca9a0a480a410f31938968d35..279ec8d6f9f429ada07485c56338c93153063355 100644
+--- a/ros_gz_bridge/test/test_gid_filtering.cpp
++++ b/ros_gz_bridge/test/test_gid_filtering.cpp
+@@ -159,7 +159,10 @@ TEST_F(GidFilteringTest, FiltersOwnMessagesAllowsExternal)
+   std_msgs::msg::String msg;
+ 
+   // Publish from both sources and spin to process callbacks.
+-  for (int i = 0; i < 20 && external_received == 0; ++i) {
++  // DDS can discover the external publisher before this node's own writer.
++  // Wait for both observations; the first external message is not proof that
++  // the self-filter path has had a chance to run.
++  for (int i = 0; i < 100 && (external_received == 0 || self_filtered == 0); ++i) {
+     msg.data = "from_bridge";
+     self_pub->publish(msg);
+     msg.data = "from_external";
+diff --git a/ros_gz_image/src/image_bridge.cpp b/ros_gz_image/src/image_bridge.cpp
+index 5cb9131b16420d067a1773cbb9be7b7be1a22d16..eb71cd0bb48ea885bf720b4fca2a6b94635bfe86 100644
+--- a/ros_gz_image/src/image_bridge.cpp
++++ b/ros_gz_image/src/image_bridge.cpp
+@@ -99,6 +99,9 @@ int main(int argc, char * argv[])
+ 
+   // Gazebo node
+   auto gz_node = std::make_shared<gz::transport::Node>();
++  auto context = node_->get_node_base_interface()->get_context();
++  auto shutdown_handle = context->add_pre_shutdown_callback(
++    [&gz_node]() {gz_node.reset();});
+ 
+   std::vector<std::shared_ptr<Handler>> handlers;
+ 
+@@ -114,6 +117,12 @@ int main(int argc, char * argv[])
+ 
+   // Spin ROS and Gz until shutdown
+   rclcpp::spin(node_);
++  context->remove_pre_shutdown_callback(shutdown_handle);
++
++  // Transport callbacks capture Handler*. Stop and join Gazebo transport
++  // before destroying the image_transport publishers owned by the handlers.
++  gz_node.reset();
++  handlers.clear();
+ 
+   return 0;
+ }

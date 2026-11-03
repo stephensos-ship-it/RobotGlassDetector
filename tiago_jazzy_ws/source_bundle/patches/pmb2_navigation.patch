@@ -1,0 +1,284 @@
+diff --git a/pmb2_2dnav/launch/pmb2_nav_bringup.launch.py b/pmb2_2dnav/launch/pmb2_nav_bringup.launch.py
+index 1704bf1f4946da611cca2576531784c9856290d3..e4f5134aa3c19ecc0da8d395747d1b930fc38b4a 100644
+--- a/pmb2_2dnav/launch/pmb2_nav_bringup.launch.py
++++ b/pmb2_2dnav/launch/pmb2_nav_bringup.launch.py
+@@ -12,22 +12,20 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
++from dataclasses import dataclass
+ import os
+ 
+ from ament_index_python.packages import get_package_share_directory
+-
+ from launch import LaunchDescription
+-from launch.actions import (
+-    DeclareLaunchArgument,
+-    OpaqueFunction,
+-)
+-from launch_pal.robot_arguments import CommonArgs
++from launch.actions import DeclareLaunchArgument
++from launch.actions import OpaqueFunction
++from launch.conditions import IfCondition
++from launch.conditions import UnlessCondition
++from launch.substitutions import LaunchConfiguration
+ from launch_pal.arg_utils import LaunchArgumentsBase
+-from dataclasses import dataclass
+-from launch_pal.include_utils import include_scoped_launch_py_description
+ from launch_pal.arg_utils import read_launch_argument
+-from launch.conditions import IfCondition, UnlessCondition
+-from launch.substitutions import LaunchConfiguration
++from launch_pal.include_utils import include_scoped_launch_py_description
++from launch_pal.robot_arguments import CommonArgs
+ from launch_ros.actions import Node
+ 
+ 
+@@ -54,48 +52,35 @@ def generate_launch_description():
+ 
+ def public_nav_function(context, *args, **kwargs):
+     actions = []
+-    pmb2_2dnav = get_package_share_directory("pmb2_2dnav")
+-    pal_maps = get_package_share_directory("pal_maps")
+-    world_name = read_launch_argument("world_name", context)
+-    param_file = os.path.join(pmb2_2dnav, "params", "pmb2_nav_public_sim.yaml")
+-    map_path = os.path.join(pal_maps, "maps", world_name, "map.yaml")
+-    rviz_config_file = os.path.join(pmb2_2dnav, "config", "rviz", "navigation.rviz")
++    pmb2_2dnav = get_package_share_directory('pmb2_2dnav')
++    pal_maps = get_package_share_directory('pal_maps')
++    world_name = read_launch_argument('world_name', context)
++    param_file = os.path.join(pmb2_2dnav, 'params', 'pmb2_nav_public_sim.yaml')
++    map_path = os.path.join(pal_maps, 'maps', world_name, 'map.yaml')
++    rviz_config_file = os.path.join(pmb2_2dnav, 'config', 'rviz', 'navigation.rviz')
+ 
+     nav2_bringup_launch = include_scoped_launch_py_description(
+-        pkg_name="nav2_bringup",
+-        paths=["launch", "navigation_launch.py"],
+-        launch_arguments={
+-            "params_file": param_file,
+-            "use_sim_time": "True"
+-        }
++        pkg_name='nav2_bringup',
++        paths=['launch', 'navigation_launch.py'],
++        launch_arguments={'params_file': param_file, 'use_sim_time': 'True'},
+     )
+     slam_bringup_launch = include_scoped_launch_py_description(
+-        pkg_name="nav2_bringup",
+-        paths=["launch", "slam_launch.py"],
+-        launch_arguments={
+-            "params_file": param_file,
+-            "use_sim_time": "True"
+-        },
+-        condition=IfCondition(LaunchConfiguration("slam")),
+-
++        pkg_name='nav2_bringup',
++        paths=['launch', 'slam_launch.py'],
++        launch_arguments={'params_file': param_file, 'use_sim_time': 'True'},
++        condition=IfCondition(LaunchConfiguration('slam')),
+     )
+ 
+     loc_bringup_launch = include_scoped_launch_py_description(
+-        pkg_name="nav2_bringup",
+-        paths=["launch", "localization_launch.py"],
+-        launch_arguments={
+-            "params_file": param_file,
+-            "map": map_path,
+-            "use_sim_time": "True"
+-        },
+-        condition=UnlessCondition(LaunchConfiguration("slam")),
++        pkg_name='nav2_bringup',
++        paths=['launch', 'localization_launch.py'],
++        launch_arguments={'params_file': param_file, 'map': map_path, 'use_sim_time': 'True'},
++        condition=UnlessCondition(LaunchConfiguration('slam')),
+     )
+     rviz_bringup_launch = include_scoped_launch_py_description(
+-        pkg_name="nav2_bringup",
+-        paths=["launch", "rviz_launch.py"],
+-        launch_arguments={
+-            "rviz": rviz_config_file
+-        },
++        pkg_name='nav2_bringup',
++        paths=['launch', 'rviz_launch.py'],
++        launch_arguments={'rviz': rviz_config_file},
+     )
+     actions.append(nav2_bringup_launch)
+     actions.append(loc_bringup_launch)
+@@ -107,64 +92,66 @@ def public_nav_function(context, *args, **kwargs):
+ 
+ def private_nav_function(context, *args, **kwargs):
+     actions = []
+-    pmb2_2dnav = get_package_share_directory("pmb2_2dnav")
+-    remappings_file = os.path.join(
+-        pmb2_2dnav, "params", "pmb2_remappings_sim.yaml")
++    pmb2_2dnav = get_package_share_directory('pmb2_2dnav')
++    remappings_file = os.path.join(pmb2_2dnav, 'params', 'pmb2_remappings_sim.yaml')
+ 
+     nav_bringup_launch = include_scoped_launch_py_description(
+-        pkg_name="pal_nav2_bringup",
+-        paths=["launch", "nav_bringup.launch.py"],
++        pkg_name='pal_nav2_bringup',
++        paths=['launch', 'nav_bringup.launch.py'],
+         launch_arguments={
+-            "params_pkg": "pmb2_2dnav",
+-            "params_file": "pmb2_nav.yaml",
+-            "robot_name": "pmb2",
+-            "remappings_file": remappings_file,
+-        }
++            'params_pkg': 'pmb2_2dnav',
++            'params_file': 'pmb2_nav.yaml',
++            'robot_name': 'pmb2',
++            'remappings_file': remappings_file,
++        },
+     )
+     slam_bringup_launch = include_scoped_launch_py_description(
+-        pkg_name="pal_nav2_bringup",
+-        paths=["launch", "nav_bringup.launch.py"],
++        pkg_name='pal_nav2_bringup',
++        paths=['launch', 'nav_bringup.launch.py'],
+         launch_arguments={
+-            "params_pkg": "pmb2_2dnav",
+-            "params_file": "pmb2_slam.yaml",
+-            "robot_name": "pmb2",
+-            "remappings_file": remappings_file,
++            'params_pkg': 'pmb2_2dnav',
++            'params_file': 'pmb2_slam.yaml',
++            'robot_name': 'pmb2',
++            'remappings_file': remappings_file,
+         },
+-        condition=IfCondition(LaunchConfiguration("slam"))
++        condition=IfCondition(LaunchConfiguration('slam')),
+     )
+     loc_bringup_launch = include_scoped_launch_py_description(
+-        pkg_name="pal_nav2_bringup",
+-        paths=["launch", "nav_bringup.launch.py"],
++        pkg_name='pal_nav2_bringup',
++        paths=['launch', 'nav_bringup.launch.py'],
+         launch_arguments={
+-            "params_pkg": "pmb2_2dnav",
+-            "params_file": "pmb2_loc.yaml",
+-            "robot_name": "pmb2",
+-            "remappings_file": remappings_file,
++            'params_pkg': 'pmb2_2dnav',
++            'params_file': 'pmb2_loc.yaml',
++            'robot_name': 'pmb2',
++            'remappings_file': remappings_file,
+         },
+-        condition=UnlessCondition(LaunchConfiguration("slam"))
++        condition=UnlessCondition(LaunchConfiguration('slam')),
+     )
+     laser_bringup_launch = include_scoped_launch_py_description(
+-        pkg_name="pal_nav2_bringup",
+-        paths=["launch", "nav_bringup.launch.py"],
++        pkg_name='pal_nav2_bringup',
++        paths=['launch', 'nav_bringup.launch.py'],
+         launch_arguments={
+-            "params_pkg": "pmb2_laser_sensors",
+-            "params_file": "laser_pipeline_sim.yaml",
+-            "robot_name": "pmb2",
+-            "remappings_file": remappings_file,
+-        }
++            'params_pkg': 'pmb2_laser_sensors',
++            'params_file': 'laser_pipeline_sim.yaml',
++            'robot_name': 'pmb2',
++            'remappings_file': remappings_file,
++        },
+     )
+ 
+     rviz_node = Node(
+-        condition=UnlessCondition(LaunchConfiguration("advanced_navigation")),
+-        package="rviz2",
+-        executable="rviz2",
+-        arguments=["-d", os.path.join(
+-            pmb2_2dnav,
+-            "config",
+-            "rviz",
+-            "navigation.rviz",
+-        )],
+-        output="screen",
++        condition=UnlessCondition(LaunchConfiguration('advanced_navigation')),
++        package='rviz2',
++        executable='rviz2',
++        arguments=[
++            '-d',
++            os.path.join(
++                pmb2_2dnav,
++                'config',
++                'rviz',
++                'navigation.rviz',
++            ),
++        ],
++        output='screen',
+     )
+ 
+     actions.append(laser_bringup_launch)
+@@ -181,13 +168,13 @@ def declare_actions(launch_description: LaunchDescription, launch_args: LaunchAr
+     launch_description.add_action(
+         OpaqueFunction(
+             function=public_nav_function,
+-            condition=IfCondition(LaunchConfiguration("is_public_sim"))
++            condition=IfCondition(LaunchConfiguration('is_public_sim')),
+         )
+     )
+ 
+     launch_description.add_action(
+         OpaqueFunction(
+             function=private_nav_function,
+-            condition=UnlessCondition(LaunchConfiguration("is_public_sim"))
++            condition=UnlessCondition(LaunchConfiguration('is_public_sim')),
+         )
+     )
+diff --git a/pmb2_rgbd_sensors/CMakeLists.txt b/pmb2_rgbd_sensors/CMakeLists.txt
+index 5bb88a8570543693e63e7c13f87dd47c1ea3b688..f8350089b3ced2df6ee677dd7655e29446673c61 100644
+--- a/pmb2_rgbd_sensors/CMakeLists.txt
++++ b/pmb2_rgbd_sensors/CMakeLists.txt
+@@ -1,11 +1,8 @@
+-cmake_minimum_required(VERSION 2.8.3)
++cmake_minimum_required(VERSION 3.16)
+ project(pmb2_rgbd_sensors)
+ 
+-find_package(catkin REQUIRED)
++find_package(ament_cmake REQUIRED)
+ 
+-catkin_package()
++install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
+ 
+-foreach(dir config launch)
+-    install(DIRECTORY ${dir}/
+-        DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/${dir})
+-endforeach(dir)
++ament_package()
+diff --git a/pmb2_rgbd_sensors/COLCON_IGNORE b/pmb2_rgbd_sensors/COLCON_IGNORE
+deleted file mode 100644
+index e69de29bb2d1d6434b8b29ae775ad8c2e48c5391..0000000000000000000000000000000000000000
+diff --git a/pmb2_rgbd_sensors/package.xml b/pmb2_rgbd_sensors/package.xml
+index 24d69d68fc70fd1474743894af7e32d81eddd5cb..eb96cb80c3f1eba8f581c6aa4c97fce77e4a40df 100644
+--- a/pmb2_rgbd_sensors/package.xml
++++ b/pmb2_rgbd_sensors/package.xml
+@@ -1,21 +1,13 @@
+ <?xml version="1.0"?>
+-<package format="2">
++<package format="3">
+   <name>pmb2_rgbd_sensors</name>
+   <version>2.0.8</version>
+-  <description>PMB2-specific RGBD sensors launch and config files.</description>
+-  <maintainer email="jeremie.deray@pal-robotics.com">Jeremie Deray</maintainer>
+-  <maintainer email="procopio.stein@pal-robotics.com">Procopio Stein</maintainer>
++  <description>Legacy PMB2 RGB-D configuration retained for compatibility; Harmonic sensors use ros_gz.</description>
++  <maintainer email="tiago-support@pal-robotics.com">TIAGo support team</maintainer>
+   <license>Apache License 2.0</license>
+-  <author email="enrique.fernandez@pal-robotics.com">Enrique Fernandez</author>
+-
+   <url type="website">https://github.com/pal-robotics/pmb2_simulation</url>
+-
+-  <buildtool_depend>catkin</buildtool_depend>
+-
+-  <exec_depend>openni2_launch</exec_depend>
+-  <exec_depend>pal-orbbec-openni2</exec_depend>
+-  <exec_depend>uvc_camera</exec_depend>
+-  <exec_depend>pal_pcl</exec_depend>
+-  <exec_depend>pal_usb_utils</exec_depend>
+-
++  <buildtool_depend>ament_cmake</buildtool_depend>
++  <exec_depend>ros_gz_bridge</exec_depend>
++  <exec_depend>ros_gz_image</exec_depend>
++  <export><build_type>ament_cmake</build_type></export>
+ </package>
