@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>contention_world</name>
+  <version>0.1.0</version>
+  <description>Hallway world, obstacle box and TIAGo launch for the CS485 stopping-distance trials.</description>
+  <maintainer email="stephensos@sonoma.edu">Stone Stephenson</maintainer>
+  <license>MIT</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>gz_tools_vendor</exec_depend>
+  <exec_depend>pal_gazebo_worlds</exec_depend>
+  <exec_depend>tiago_gazebo</exec_depend>
+  <test_depend>ament_cmake_pytest</test_depend>
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
