@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>contention_scheduler</name>
+  <version>0.1.0</version>
+  <description>Virtual CPU core (round robin) and the robots' scan filter, local map and braking controller for the CS485 contention trials.</description>
+  <maintainer email="stephensos@sonoma.edu">Stone Stephenson</maintainer>
+  <license>MIT</license>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <test_depend>python3-pytest</test_depend>
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

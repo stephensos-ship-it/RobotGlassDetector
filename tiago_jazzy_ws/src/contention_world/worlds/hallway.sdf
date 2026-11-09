@@ -1,13 +1,20 @@
 <?xml version="1.0" ?>
 <!--
-  Straight hallway for the stopping-distance trials: 12 m long along +x, 2 m clear
-  width, 2 m tall walls, open at both ends so nothing but the box is ever in TIAGo's
-  path. TIAGo spawns at x = 1 facing +x (launch/hallway.launch.py).
+  Two straight hallways side by side for the stopping-distance trials. Each is 12 m long
+  along +x, 2 m clear width, with 2 m tall walls, and open at both ends so nothing but
+  its box is ever in a robot's path. They share the middle wall:
 
-  The 0.4 m box waits behind the right wall, out of sight of the lidar and the head
-  camera, until something moves it into the hallway through Gazebo's
-  /world/hallway/set_pose service (scripts/place_box). It is static, so it neither
-  settles after a move nor gets pushed by the robot.
+    hallway 1: centreline y = 0.0, between wall_right and wall_middle
+    hallway 2: centreline y = 2.2, between wall_middle and wall_left
+
+  The one-robot launch (launch/hallway.launch.py) spawns TIAGo in hallway 1 and ignores
+  hallway 2. The two-robot launch (launch/two_tiagos.launch.py) puts tiago1 in hallway 1
+  and tiago2 in hallway 2. Both start at x = 1 facing +x.
+
+  Each hallway has a 0.4 m box (box1, box2) waiting behind its outer wall, out of sight
+  of the lidar and the head camera, until something moves it into the hallway through
+  Gazebo's /world/hallway/set_pose service (scripts/place_box). The boxes are static, so
+  they neither settle after a move nor get pushed by a robot.
 
   Load it through tiago_gazebo / pal_gazebo_worlds: that loader adds the physics,
   sensor, user-command and contact systems.
@@ -54,26 +61,9 @@
       </link>
     </model>
 
-    <!-- Wall centres sit 1.1 m either side of the centreline; 0.2 m thick, so the
-         inner faces are at y = +/-1.0 m. -->
-    <model name="left_wall">
-      <static>true</static>
-      <pose>6 1.1 1 0 0 0</pose>
-      <link name="link">
-        <collision name="collision">
-          <geometry><box><size>12 0.2 2</size></box></geometry>
-        </collision>
-        <visual name="visual">
-          <geometry><box><size>12 0.2 2</size></box></geometry>
-          <material>
-            <ambient>0.6 0.6 0.65 1</ambient>
-            <diffuse>0.6 0.6 0.65 1</diffuse>
-          </material>
-        </visual>
-      </link>
-    </model>
-
-    <model name="right_wall">
+    <!-- Walls are 0.2 m thick with centres 2.2 m apart, so each hallway's inner faces
+         are 1.0 m either side of its centreline. -->
+    <model name="wall_right">
       <static>true</static>
       <pose>6 -1.1 1 0 0 0</pose>
       <link name="link">
@@ -90,10 +80,61 @@
       </link>
     </model>
 
-    <!-- The obstacle. place_box's hide option returns it to this parked pose. -->
-    <model name="box">
+    <model name="wall_middle">
+      <static>true</static>
+      <pose>6 1.1 1 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>12 0.2 2</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>12 0.2 2</size></box></geometry>
+          <material>
+            <ambient>0.6 0.6 0.65 1</ambient>
+            <diffuse>0.6 0.6 0.65 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="wall_left">
+      <static>true</static>
+      <pose>6 3.3 1 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>12 0.2 2</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>12 0.2 2</size></box></geometry>
+          <material>
+            <ambient>0.6 0.6 0.65 1</ambient>
+            <diffuse>0.6 0.6 0.65 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- The obstacles. place_box's hide option returns each to its parked pose here. -->
+    <model name="box1">
       <static>true</static>
       <pose>6 -3 0.2 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>0.4 0.4 0.4</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.4 0.4 0.4</size></box></geometry>
+          <material>
+            <ambient>0.8 0.2 0.1 1</ambient>
+            <diffuse>0.8 0.2 0.1 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="box2">
+      <static>true</static>
+      <pose>6 5.4 0.2 0 0 0</pose>
       <link name="link">
         <collision name="collision">
           <geometry><box><size>0.4 0.4 0.4</size></box></geometry>

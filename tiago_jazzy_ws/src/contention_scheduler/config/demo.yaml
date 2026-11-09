@@ -1,0 +1,13 @@
+# Settings for the pipelines node (ros2 launch contention_scheduler pipelines.launch.py).
+#
+# PLACEHOLDER task costs, chosen for the demo, not measured. Each robot's three steps
+# then need 10 x 15 + 5 x 40 + 20 x 5 = 450 ms of CPU per second, so one robot keeps the
+# core 45% busy and two keep it 90% busy, enough to see them delay each other. Replace
+# them with each step's median time measured on the lab machine before any real trials.
+pipelines:
+  ros__parameters:
+    cost_filter_ms: 15
+    cost_map_ms: 40
+    cost_control_ms: 5
+    speed: 0.3          # m/s while the path is clear
+    stop_distance: 1.0  # m ahead of the laser; anything nearer and inside the robot's width stops it
