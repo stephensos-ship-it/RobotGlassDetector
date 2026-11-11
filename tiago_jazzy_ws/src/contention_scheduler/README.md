@@ -1,36 +1,51 @@
 # contention_scheduler
 
-Every robot's navigation pipeline, all running on one virtual CPU core that hands out
-time round robin. Two files hold all of it:
-
-- `contention_scheduler/virtual_cpu.py`: the core. Jobs wait in one line; each simulated
-  millisecond, the job at the front runs for one tick and goes to the back. It reports
-  when each job would have finished. Plain Python, no ROS.
-- `contention_scheduler/pipelines.py`: the ROS node. For each robot it runs a scan filter
-  (on every scan, 10 Hz), a local map (5 Hz), and a braking controller (20 Hz). Each step
-  computes its answer at once, but the answer only takes effect when the core says the
-  job would have finished. So competition for the core becomes reaction delay in
-  simulated time, without loading the real CPU.
+Each robot has its own Python process running a scan filter (on each scan), local map
+(5 Hz), and braking controller (20 Hz). Linux schedules the actual computation; results
+take effect immediately after each step finishes. The robots drive at 0.3 m/s and stop
+when an obstacle is inside the strip 1 m ahead of the laser and as wide as the robot.
 
 Run it after the robots are up (`contention_world`):
 
 ```bash
 ros2 launch contention_world two_tiagos.launch.py
-ros2 launch contention_scheduler pipelines.launch.py                 # both robots compete
-ros2 launch contention_scheduler pipelines.launch.py robots:=tiago1  # tiago1 has the core alone
+ros2 launch contention_scheduler pipelines.launch.py                 # two pipeline processes
+ros2 launch contention_scheduler pipelines.launch.py robots:=tiago1  # only tiago1's pipeline
 ros2 run contention_world place_box 6.0 --hallway 1                  # a box ahead of tiago1
 ```
 
-The robots drive at 0.3 m/s and stop when anything is inside the strip 1 m ahead of the
-laser and as wide as the robot. Every 2 s (simulated) the node logs how busy the core was,
-each robot's position, and each step's average time from release to finish. When a robot
-stops for an obstacle, it logs the reaction time, from the first scan that showed it to
-the stop command.
+Choose one pipeline launch at a time. With `robots:=tiago1`, the second robot stays still.
+On Docker, run ROS commands through `mac/tiago.sh shell -c '...'` from the repo root.
 
-**The task costs in `config/demo.yaml` are placeholders**, picked so that two robots keep
-the core about 90% busy and visibly slow each other. Measure each step on the lab machine
-before any real trials. Not built yet: the priority rule, phantom robots, and dropping
-stale jobs when the core is overloaded.
+The monitor prints the pipeline PIDs and updates once per wall-clock second. Example:
 
-`colcon test --packages-select contention_scheduler` checks the core against schedules
-worked out by hand.
+```text
+Total system: 28.40% | tiago1: 0.15% | tiago2: 0.12%
+```
+
+The same readings appear above the browser desktop opened by `mac/tiago.sh up`.
+The page clears stale readings when the monitor stops updating.
+
+All percentages use the total Linux CPU capacity as their denominator: one fully busy
+logical CPU on an eight-CPU system is 12.5%. Total system usage comes from `/proc/stat`;
+each robot's user + kernel CPU time comes from `/proc/PID/stat`, including its threads.
+The robot values measure only their pipeline processes. The system total also includes
+Gazebo, rendering, the monitor, and other programs, so robot usage does not sum to it.
+On Fedora Docker Engine, these are host-system counters; on Mac, they describe Docker's
+Linux VM. They are not percentages of a Docker CPU quota.
+
+`pipelines.py` contains the single-robot ROS node. `cpu_monitor.py` starts and monitors
+the processes, then stops them when interrupted. `config/demo.yaml` sets speed and stop
+distance. Low usage is expected for this small workload; no artificial CPU load is added.
+No priorities, quotas, or allocation policy are set. The old `virtual_cpu.py` and its
+tests remain as reference code and are not used by the launch.
+
+After updating the package, rebuild it and source the overlay. For the root Docker helper:
+
+```bash
+./tiago-docker.sh setup --packages-select contention_scheduler
+./tiago-docker.sh
+```
+
+These two helper commands run from the directory above the repository. CPU-accounting
+checks run with `colcon test --packages-select contention_scheduler`.

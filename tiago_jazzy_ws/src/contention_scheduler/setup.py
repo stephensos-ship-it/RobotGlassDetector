@@ -18,12 +18,13 @@ setup(
     zip_safe=True,
     maintainer='Stone Stephenson',
     maintainer_email='stephensos@sonoma.edu',
-    description='Virtual CPU core and robot pipelines for the CS485 contention trials.',
+    description='Robot pipelines and actual Linux CPU monitoring for the CS485 trials.',
     license='MIT',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'pipelines = contention_scheduler.pipelines:main',
+            'cpu_monitor = contention_scheduler.cpu_monitor:main',
         ],
     },
 )

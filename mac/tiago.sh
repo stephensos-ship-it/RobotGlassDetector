@@ -23,7 +23,7 @@ usage() {
 
 # The desktop link carries the container's random VNC password.
 desktop_url() {
-  printf 'Desktop: http://localhost:6080/vnc.html?autoconnect=1&resize=scale&password=%s\n' \
+  printf 'Desktop: http://localhost:6080/desktop.html?autoconnect=1&resize=scale&password=%s\n' \
     "$(docker exec "${container}" printenv VNC_PASSWORD)"
 }
 
@@ -46,6 +46,7 @@ case "${command}" in
       docker run -d --init --name "${container}" --shm-size=2g -p 127.0.0.1:6080:6080 \
         -e VNC_PASSWORD="$(openssl rand -hex 4)" -v "${repo_dir}:/ws" "${image}" >/dev/null
     fi
+    docker exec "${container}" bash /ws/mac/desktop.sh
     desktop_url
     ;;
   setup)

@@ -13,6 +13,7 @@ for _ in $(seq 1 50); do
   sleep 0.1
 done
 
+bash /ws/mac/desktop.sh
 openbox >/tmp/openbox.log 2>&1 &
 # Password-protect the desktop: websockify does not check origins, so any web page open
 # in the browser could otherwise connect to it. mac/tiago.sh up sets VNC_PASSWORD.

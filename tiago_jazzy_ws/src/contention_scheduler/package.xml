@@ -2,7 +2,7 @@
 <package format="3">
   <name>contention_scheduler</name>
   <version>0.1.0</version>
-  <description>Virtual CPU core (round robin) and the robots' scan filter, local map and braking controller for the CS485 contention trials.</description>
+  <description>Separate robot pipelines and actual Linux CPU monitoring for the CS485 contention trials.</description>
   <maintainer email="stephensos@sonoma.edu">Stone Stephenson</maintainer>
   <license>MIT</license>
   <exec_depend>rclpy</exec_depend>

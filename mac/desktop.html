@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gazebo</title>
+  <style>
+    body { margin: 0; height: 100vh; display: flex; flex-direction: column;
+           background: #292929; color: white; font: 16px monospace; }
+    header { display: flex; gap: 24px; flex-wrap: wrap; padding: 12px; }
+    iframe { flex: 1; min-height: 0; width: 100%; border: 0; }
+  </style>
+</head>
+<body>
+  <header aria-label="CPU usage">
+    <span>Total system: <span id="system"></span></span>
+    <span>TIAGo 1 pipeline: <span id="tiago1"></span></span>
+    <span>TIAGo 2 pipeline: <span id="tiago2"></span></span>
+  </header>
+  <iframe id="desktop" title="Gazebo remote desktop" allow="fullscreen"></iframe>
+  <script>
+    // Keep the noVNC password and display options from the link printed by Docker.
+    const desktop = new URL('vnc.html', location.href);
+    desktop.search = location.search;
+    document.getElementById('desktop').src = desktop.href;
+
+    const fields = ['system', 'tiago1', 'tiago2'];
+    function unavailable() {
+      fields.forEach(name => document.getElementById(name).textContent = '');
+    }
+
+    async function refresh() {
+      try {
+        const response = await fetch('cpu-usage.json', { cache: 'no-store' });
+        if (!response.ok) throw new Error('No CPU sample');
+        const sample = await response.json();
+        if (Date.now() / 1000 - sample.time > 4) {
+          unavailable();
+          return;
+        }
+        const percent = value => `${value.toFixed(2)}%`;
+        document.getElementById('system').textContent = percent(sample.system);
+        for (const name of ['tiago1', 'tiago2']) {
+          const value = sample.robots[name];
+          document.getElementById(name).textContent = value == null ? '' : percent(value);
+        }
+      } catch {
+        unavailable();
+      }
+    }
+    refresh();
+    setInterval(refresh, 1000);
+  </script>
+</body>
+</html>

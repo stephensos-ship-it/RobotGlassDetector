@@ -1,16 +1,12 @@
-"""Start every robot's pipeline on one virtual CPU core. Start the robots first.
-
-  ros2 launch contention_scheduler pipelines.launch.py                 both robots compete
-  ros2 launch contention_scheduler pipelines.launch.py robots:=tiago1  tiago1 has the core alone
-"""
+"""Start a separate pipeline process per robot and print actual CPU usage."""
 
 from pathlib import Path
+import sys
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, ExecuteProcess
 from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import Node
 
 
 def generate_launch_description():
@@ -18,14 +14,12 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
             'robots', default_value='tiago1 tiago2',
-            description='Robots whose pipelines run on the core, separated by spaces',
+            description='Robots to control and monitor, separated by spaces',
         ),
-        Node(
-            package='contention_scheduler',
-            executable='pipelines',
-            parameters=[
-                str(settings),
-                {'use_sim_time': True, 'robots': LaunchConfiguration('robots')},
+        ExecuteProcess(
+            cmd=[
+                sys.executable, '-m', 'contention_scheduler.cpu_monitor',
+                '--robots', LaunchConfiguration('robots'), '--params-file', str(settings),
             ],
             output='screen',
         ),

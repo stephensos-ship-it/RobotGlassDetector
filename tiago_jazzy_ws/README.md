@@ -29,6 +29,7 @@ Add `slam:=True` for mapping or `gzclient:=False rviz:=False` for headless use.
 
 - [Native Ubuntu setup](docs/ubuntu.md)
 - [Launch and robot configuration reference](docs/launch.md)
+- [Two-robot pipelines and actual CPU usage](src/contention_scheduler/README.md)
 
 Follow [the Ubuntu prerequisites](docs/ubuntu.md),
 then prepare and build this workspace in place:
