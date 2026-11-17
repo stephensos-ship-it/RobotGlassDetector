@@ -10,6 +10,15 @@
   <exec_depend>gz_tools_vendor</exec_depend>
   <exec_depend>pal_gazebo_worlds</exec_depend>
   <exec_depend>tiago_gazebo</exec_depend>
+  <exec_depend>contention_scheduler</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>ros_gz_bridge</exec_depend>
+  <exec_depend>ros_gz_interfaces</exec_depend>
   <test_depend>ament_cmake_pytest</test_depend>
   <export>
     <build_type>ament_cmake</build_type>

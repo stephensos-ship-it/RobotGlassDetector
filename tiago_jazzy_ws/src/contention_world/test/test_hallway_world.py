@@ -83,10 +83,28 @@ def test_place_box_and_the_two_robot_launch_use_the_world_centrelines():
 
 
 def test_only_the_floor_walls_and_boxes_are_in_the_world():
-    # The ends stay open: anything else ahead of a robot would look like an obstacle.
     names = {model.get('name') for model in world().findall('model')}
-    assert names == {'ground_plane', 'wall_right', 'wall_middle', 'wall_left', 'box1', 'box2'}
+    assert names == {'ground_plane', 'wall_right', 'wall_middle', 'wall_left',
+                     'wall_end', 'finish_line', 'box1', 'box2'}
     assert world().findall('include') == []
+
+
+def test_finish_is_visual_only_and_two_metres_before_the_end_wall():
+    finish = world().find("model[@name='finish_line']")
+    assert numbers(finish.findtext('pose'))[0] == pytest.approx(10.0)
+    assert finish.find('link/visual') is not None
+    assert finish.find('link/collision') is None
+    pose, size = box_models()['wall_end']
+    assert pose[0] - size[0] / 2 == pytest.approx(LENGTH)
+    assert size[1] >= 4.4  # closes both lanes, including their side walls
+
+
+def test_walls_and_obstacles_report_contacts_without_modifying_the_robots():
+    for name in box_models():
+        sensor = world().find(f"model[@name='{name}']/link/sensor[@type='contact']")
+        assert sensor is not None, name
+        assert sensor.findtext('contact/topic') == '/trial/contacts'
+        assert sensor.findtext('contact/collision') == 'collision'
 
 
 def test_walls_and_boxes_stand_on_the_floor():

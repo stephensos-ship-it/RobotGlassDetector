@@ -40,12 +40,14 @@ distance. Low usage is expected for this small workload; no artificial CPU load 
 No priorities, quotas, or allocation policy are set. The old `virtual_cpu.py` and its
 tests remain as reference code and are not used by the launch.
 
-After updating the package, rebuild it and source the overlay. For the root Docker helper:
+After updating the package, rebuild it from the repository root on the host, then open
+a new container shell with the updated overlay sourced:
 
 ```bash
-./tiago-docker.sh setup --packages-select contention_scheduler
-./tiago-docker.sh
+mac/tiago.sh setup --packages-select contention_scheduler
+mac/tiago.sh shell
 ```
 
-These two helper commands run from the directory above the repository. CPU-accounting
-checks run with `colcon test --packages-select contention_scheduler`.
+For repeatable trials, follow the [trial instructions](../contention_world/README.md#repeatable-trials);
+the trial launch starts both pipelines and the CPU monitor automatically. CPU-accounting
+checks run inside the container with `colcon test --packages-select contention_scheduler`.

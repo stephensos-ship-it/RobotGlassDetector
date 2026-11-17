@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+"""Supervise one fresh hallway trial without changing either robot's pipeline."""
+
+import math
+from pathlib import Path
+import subprocess
+import sys
+from time import monotonic
+
+from geometry_msgs.msg import Twist
+from nav_msgs.msg import Odometry
+import rclpy
+from rclpy.clock import Clock, ClockType
+from rclpy.node import Node
+from rclpy.qos import DurabilityPolicy, QoSProfile, qos_profile_sensor_data
+from ros_gz_interfaces.msg import Contacts
+from sensor_msgs.msg import LaserScan
+from std_msgs.msg import String
+
+
+class Trial(Node):
+    def __init__(self):
+        super().__init__('hallway_trial')
+        self.scenario = self.declare_parameter('scenario', 'clear').value
+        self.hallway = self.declare_parameter('hallway', 1).value
+        self.finish_x = self.declare_parameter('finish_x', 10.0).value
+        self.trigger_x = self.declare_parameter('trigger_x', 4.0).value
+        self.box_x = self.declare_parameter('box_x', 6.0).value
+        self.timeout = self.declare_parameter('timeout', 45.0).value
+        if self.scenario not in ('clear', 'obstacle') or self.hallway not in (1, 2):
+            raise ValueError('Use scenario clear/obstacle and hallway 1/2.')
+        if not 1.0 < self.trigger_x < self.box_x < self.finish_x < 11.0 or self.timeout <= 0:
+            raise ValueError('Require 1 < trigger_x < box_x < finish_x < 11 and timeout > 0.')
+
+        self.names = ['tiago1', 'tiago2']
+        self.hazard_robot = f'tiago{self.hallway}'
+        self.odometry = {}
+        self.scans = set()
+        self.commands = {}
+        self.still_since = {}
+        self.finished = set()
+        self.obstacle_stopped = False
+        self.placement = None
+        self.box_placed = False
+        self.ready_since = None
+        self.started = None
+        self.created = monotonic()
+        self.last_odometry = {}
+        self.result = None
+        self.done = False
+
+        self.stops = {name: self.create_publisher(Twist, f'/{name}/key_vel', 10)
+                      for name in self.names}
+        for name in self.names:
+            self.create_subscription(Odometry, f'/{name}/ground_truth_odom',
+                                     lambda msg, name=name: self.track(name, msg),
+                                     qos_profile_sensor_data)
+            self.create_subscription(LaserScan, f'/{name}/scan_raw',
+                                     lambda msg, name=name: self.scans.add(name),
+                                     qos_profile_sensor_data)
+            self.create_subscription(Twist, f'/{name}/cmd_vel',
+                                     lambda msg, name=name: self.commands.update({name: msg}), 10)
+        self.create_subscription(Contacts, '/trial/contacts', self.contact, qos_profile_sensor_data)
+        self.status = self.create_publisher(
+            String, '/trial/status', QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL))
+        # Wall-clock checks still run if simulation time has not started or stalls.
+        self.create_timer(0.05, self.tick, clock=Clock(clock_type=ClockType.STEADY_TIME))
+        self.report('WAITING: holding both robots until odometry, scans and commands are ready')
+
+    def now(self):
+        return self.get_clock().now().nanoseconds / 1e9
+
+    def report(self, message):
+        self.get_logger().info(message)
+        self.status.publish(String(data=message))
+
+    def track(self, name, odometry):
+        self.odometry[name] = odometry
+        self.last_odometry[name] = monotonic()
+
+    def contact(self, message):
+        if message.contacts and self.result is None:
+            self.complete('FAIL: collision with a trial wall or box')
+
+    def complete(self, result):
+        if self.result is None:
+            self.result = result
+            self.ending = monotonic()
+            self.report(result)
+
+    def tick(self):
+        now = self.now()
+        for name, odometry in self.odometry.items():
+            velocity = odometry.twist.twist
+            stopped = math.hypot(velocity.linear.x, velocity.linear.y) < 0.01
+            stopped = stopped and abs(velocity.angular.z) < 0.01
+            if stopped:
+                self.still_since.setdefault(name, now)
+            else:
+                self.still_since.pop(name, None)
+        stationary = {name for name, since in self.still_since.items() if now - since >= 0.5}
+
+        if self.result is None and monotonic() - self.created > 600:
+            self.complete('FAIL: wall-clock timeout')
+        if self.result is None and self.started is None and monotonic() - self.created > 120:
+            self.complete('FAIL: startup timeout')
+        if self.result is None and self.started is None:
+            ready = all(name in self.odometry and name in self.scans and name in self.commands
+                        for name in self.names)
+            if ready:
+                if any(abs(self.odometry[name].pose.pose.position.x - 1.0) > 0.25
+                       for name in self.names):
+                    self.complete('FAIL: robots are not at the start; restart the simulation')
+                elif self.ready_since is None:
+                    self.ready_since = now
+                elif now - self.ready_since >= 1.0:
+                    self.started = now
+                    self.report(f'RUNNING: {self.scenario} (selected hallway {self.hallway})')
+
+        if self.result is None and self.started is not None:
+            if now - self.started > self.timeout or any(
+                    monotonic() - self.last_odometry[name] > 10 for name in self.names):
+                self.complete('FAIL: trial timeout or missing odometry')
+            for name, odometry in self.odometry.items():
+                if odometry.pose.pose.position.x >= self.finish_x:
+                    self.finished.add(name)
+            if self.scenario == 'obstacle':
+                x = self.odometry[self.hazard_robot].pose.pose.position.x
+                if self.result is None and self.placement is None and x >= self.trigger_x:
+                    self.placement = subprocess.Popen([
+                        sys.executable, str(Path(__file__).with_name('place_box')),
+                        str(self.box_x), '--hallway', str(self.hallway),
+                    ])
+                if self.placement is not None and not self.box_placed:
+                    code = self.placement.poll()
+                    if code == 0:
+                        self.box_placed = True
+                        self.report('BOX_PLACED: Gazebo acknowledged the placement request')
+                    elif code is not None:
+                        self.complete('FAIL: obstacle placement failed')
+                command = self.commands[self.hazard_robot]
+                if self.box_placed and self.hazard_robot in stationary and command.linear.x == 0:
+                    self.obstacle_stopped = True
+                if self.hazard_robot in self.finished:
+                    self.complete('FAIL: hazard robot reached the finish without stopping for the box')
+
+            terminal = self.finished | ({self.hazard_robot} if self.obstacle_stopped else set())
+            if set(self.names) <= terminal and set(self.names) <= stationary:
+                self.complete('PASS: both robots reached their trial stopping conditions')
+
+        # Only start/finish/end holds use the mux override. Obstacle braking is left
+        # entirely to the pipeline, so reaction-time logging can observe /cmd_vel.
+        held = set(self.names) if self.started is None or self.result else self.finished.copy()
+        if self.obstacle_stopped:
+            held.add(self.hazard_robot)
+        for name in held:
+            self.stops[name].publish(Twist())
+        if self.result:
+            self.done = set(self.names) <= stationary or monotonic() - self.ending > 10
+
+
+def main():
+    rclpy.init()
+    node = Trial()
+    try:
+        while rclpy.ok() and not node.done:
+            rclpy.spin_once(node, timeout_sec=0.1)
+        return 0 if node.result and node.result.startswith('PASS') else 1
+    except KeyboardInterrupt:
+        return 130
+    finally:
+        for publisher in node.stops.values():
+            publisher.publish(Twist())
+        if node.placement is not None and node.placement.poll() is None:
+            node.placement.terminate()
+            node.placement.wait(timeout=5)
+        node.destroy_node()
+        rclpy.try_shutdown()
+
+
+if __name__ == '__main__':
+    sys.exit(main())

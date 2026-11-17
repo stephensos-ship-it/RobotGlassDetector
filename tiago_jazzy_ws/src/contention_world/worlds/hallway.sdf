@@ -1,8 +1,8 @@
 <?xml version="1.0" ?>
 <!--
   Two straight hallways side by side for the stopping-distance trials. Each is 12 m long
-  along +x, 2 m clear width, with 2 m tall walls, and open at both ends so nothing but
-  its box is ever in a robot's path. They share the middle wall:
+  along +x, 2 m clear width, with 2 m tall walls. Robots finish at x = 10 m;
+  an end wall at x = 12 m provides containment. They share the middle wall:
 
     hallway 1: centreline y = 0.0, between wall_right and wall_middle
     hallway 2: centreline y = 2.2, between wall_middle and wall_left
@@ -67,6 +67,13 @@
       <static>true</static>
       <pose>6 -1.1 1 0 0 0</pose>
       <link name="link">
+        <sensor name="trial_contact" type="contact">
+          <always_on>true</always_on><update_rate>50</update_rate>
+          <contact>
+            <collision>collision</collision>
+            <topic>/trial/contacts</topic>
+          </contact>
+        </sensor>
         <collision name="collision">
           <geometry><box><size>12 0.2 2</size></box></geometry>
         </collision>
@@ -84,6 +91,13 @@
       <static>true</static>
       <pose>6 1.1 1 0 0 0</pose>
       <link name="link">
+        <sensor name="trial_contact" type="contact">
+          <always_on>true</always_on><update_rate>50</update_rate>
+          <contact>
+            <collision>collision</collision>
+            <topic>/trial/contacts</topic>
+          </contact>
+        </sensor>
         <collision name="collision">
           <geometry><box><size>12 0.2 2</size></box></geometry>
         </collision>
@@ -101,6 +115,13 @@
       <static>true</static>
       <pose>6 3.3 1 0 0 0</pose>
       <link name="link">
+        <sensor name="trial_contact" type="contact">
+          <always_on>true</always_on><update_rate>50</update_rate>
+          <contact>
+            <collision>collision</collision>
+            <topic>/trial/contacts</topic>
+          </contact>
+        </sensor>
         <collision name="collision">
           <geometry><box><size>12 0.2 2</size></box></geometry>
         </collision>
@@ -114,11 +135,51 @@
       </link>
     </model>
 
+    <!-- Visual only: this finish stripe does not appear in lidar or block the robot. -->
+    <model name="finish_line">
+      <static>true</static>
+      <pose>10 1.1 0.006 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><box><size>0.06 4.2 0.008</size></box></geometry>
+          <material><ambient>0.1 0.7 0.2 1</ambient><diffuse>0.1 0.7 0.2 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="wall_end">
+      <static>true</static>
+      <pose>12.1 1.1 1 0 0 0</pose>
+      <link name="link">
+        <sensor name="trial_contact" type="contact">
+          <always_on>true</always_on><update_rate>50</update_rate>
+          <contact>
+            <collision>collision</collision>
+            <topic>/trial/contacts</topic>
+          </contact>
+        </sensor>
+        <collision name="collision">
+          <geometry><box><size>0.2 4.6 2</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.2 4.6 2</size></box></geometry>
+          <material><ambient>0.6 0.6 0.65 1</ambient><diffuse>0.6 0.6 0.65 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
     <!-- The obstacles. place_box's hide option returns each to its parked pose here. -->
     <model name="box1">
       <static>true</static>
       <pose>6 -3 0.2 0 0 0</pose>
       <link name="link">
+        <sensor name="trial_contact" type="contact">
+          <always_on>true</always_on><update_rate>50</update_rate>
+          <contact>
+            <collision>collision</collision>
+            <topic>/trial/contacts</topic>
+          </contact>
+        </sensor>
         <collision name="collision">
           <geometry><box><size>0.4 0.4 0.4</size></box></geometry>
         </collision>
@@ -136,6 +197,13 @@
       <static>true</static>
       <pose>6 5.4 0.2 0 0 0</pose>
       <link name="link">
+        <sensor name="trial_contact" type="contact">
+          <always_on>true</always_on><update_rate>50</update_rate>
+          <contact>
+            <collision>collision</collision>
+            <topic>/trial/contacts</topic>
+          </contact>
+        </sensor>
         <collision name="collision">
           <geometry><box><size>0.4 0.4 0.4</size></box></geometry>
         </collision>
