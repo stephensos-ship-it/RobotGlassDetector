@@ -7,15 +7,16 @@
   <style>
     body { margin: 0; height: 100vh; display: flex; flex-direction: column;
            background: #292929; color: white; font: 16px monospace; }
-    header { display: flex; gap: 24px; flex-wrap: wrap; padding: 12px; }
+    header { display: grid; grid-template-columns: max-content max-content 1fr;
+             gap: 4px 24px; padding: 12px; }
     iframe { flex: 1; min-height: 0; width: 100%; border: 0; }
   </style>
 </head>
 <body>
-  <header aria-label="CPU usage">
-    <span>Total system: <span id="system"></span></span>
-    <span>TIAGo 1 pipeline: <span id="tiago1"></span></span>
-    <span>TIAGo 2 pipeline: <span id="tiago2"></span></span>
+  <header aria-label="CPU usage and reaction times">
+    <span>Total system:</span><span id="system"></span><span></span>
+    <span>TIAGo 1 pipeline:</span><span id="tiago1"></span><span id="tiago1-reaction"></span>
+    <span>TIAGo 2 pipeline:</span><span id="tiago2"></span><span id="tiago2-reaction"></span>
   </header>
   <iframe id="desktop" title="Gazebo remote desktop" allow="fullscreen"></iframe>
   <script>
@@ -24,9 +25,22 @@
     desktop.search = location.search;
     document.getElementById('desktop').src = desktop.href;
 
-    const fields = ['system', 'tiago1', 'tiago2'];
+    const fields = ['system', 'tiago1', 'tiago2', 'tiago1-reaction', 'tiago2-reaction'];
     function unavailable() {
       fields.forEach(name => document.getElementById(name).textContent = '');
+    }
+
+    // Reaction: from the first laser scan showing the obstacle to the stop command, in
+    // simulated time and in real (wall-clock) time. The gap is measured from the laser.
+    function describe(reaction) {
+      if (reaction == null) return '';
+      if (reaction.reaction_sim == null) return reaction.driving ? 'driving' : '';
+      const seconds = value => `${value.toFixed(2)} s`;
+      const timing = `reaction ${seconds(reaction.reaction_sim)} sim, ` +
+                     `${seconds(reaction.reaction_real)} real`;
+      if (reaction.driving) return `${timing} · driving again`;
+      return reaction.rest_gap == null ? `${timing} · stopping`
+        : `${timing} · stopped ${reaction.rest_gap.toFixed(2)} m from the box`;
     }
 
     async function refresh() {
@@ -43,6 +57,8 @@
         for (const name of ['tiago1', 'tiago2']) {
           const value = sample.robots[name];
           document.getElementById(name).textContent = value == null ? '' : percent(value);
+          document.getElementById(`${name}-reaction`).textContent =
+            describe((sample.reactions || {})[name]);
         }
       } catch {
         unavailable();
