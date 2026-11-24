@@ -16,7 +16,7 @@ class ObstacleDetector(Node):
 
         scan_topic = self.get_parameter('scan_topic').value
         self.threshold = self.get_parameter('threshold').value
-        
+
         self.was_obstacle_detected = False
 
         self.subscription = self.create_subscription(
