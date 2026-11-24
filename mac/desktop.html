@@ -12,10 +12,10 @@
   </style>
 </head>
 <body>
-  <header aria-label="CPU usage">
+  <header aria-label="CPU usage and hazard status">
     <span>Total system: <span id="system"></span></span>
-    <span>TIAGo 1 pipeline: <span id="tiago1"></span></span>
-    <span>TIAGo 2 pipeline: <span id="tiago2"></span></span>
+    <span>TIAGo 1 pipeline: <span id="tiago1"></span> | Hazard: <span id="tiago1-hazard">Unknown</span></span>
+    <span>TIAGo 2 pipeline: <span id="tiago2"></span> | Hazard: <span id="tiago2-hazard">Unknown</span></span>
   </header>
   <iframe id="desktop" title="Gazebo remote desktop" allow="fullscreen"></iframe>
   <script>
@@ -27,6 +27,9 @@
     const fields = ['system', 'tiago1', 'tiago2'];
     function unavailable() {
       fields.forEach(name => document.getElementById(name).textContent = '');
+      for (const name of ['tiago1', 'tiago2']) {
+        document.getElementById(`${name}-hazard`).textContent = 'Unknown';
+      }
     }
 
     async function refresh() {
@@ -43,6 +46,7 @@
         for (const name of ['tiago1', 'tiago2']) {
           const value = sample.robots[name];
           document.getElementById(name).textContent = value == null ? '' : percent(value);
+          document.getElementById(`${name}-hazard`).textContent = sample.hazards?.[name] ?? 'Unknown';
         }
       } catch {
         unavailable();

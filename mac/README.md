@@ -19,12 +19,16 @@ mac/tiago.sh sim     # launch TIAGo with Nav2, Gazebo and RViz
 Open the link that `up` and `sim` print. It includes the container's random VNC password,
 which keeps other web pages in your browser from connecting to the desktop.
 
-The browser page shows total system CPU usage and each TIAGo pipeline's CPU usage above
-the remote desktop. Start `contention_scheduler pipelines.launch.py` to populate these
+The browser page shows total system CPU usage, each TIAGo pipeline's CPU usage, and
+each robot's hazard service result above the remote desktop. The CPU monitor calls
+each robot's `check_hazard` service on every CPU update (about once per second).
+Hazards show `Hazard detected`, `Path clear`, or `Unknown` when a result is unavailable.
+Start `contention_scheduler pipelines.launch.py` to populate these
 readings; the page indicates when the monitor is not running. Gazebo's main window
 opens maximized. Run `mac/tiago.sh up` to apply these desktop settings to an existing
 container, then use its new `desktop.html` link. Restart the pipeline launch after
-updating the code so it publishes CPU samples for the page; an image rebuild is not
+updating and rebuilding `contention_scheduler` so it publishes the new status samples;
+refresh the browser page. An image rebuild is not
 required for an existing container.
 
 `mac/tiago.sh sim world_name:=empty` passes extra launch arguments (see

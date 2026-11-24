@@ -7,6 +7,9 @@ import signal
 import subprocess
 import sys
 
+import rclpy
+from std_srvs.srv import Trigger
+
 from contention_scheduler import cpu_monitor
 
 
@@ -20,6 +23,42 @@ def test_process_ticks_handle_spaces_and_parentheses_in_names(monkeypatch):
     fields = ['S'] + ['0'] * 10 + ['30', '12', '999', '999']
     monkeypatch.setattr(Path, 'read_text', lambda _: '42 (a process) name) ' + ' '.join(fields))
     assert cpu_monitor.process_ticks(42) == 42  # child CPU fields are excluded
+
+
+def test_hazard_services_report_each_robot_and_clear_unavailable_results():
+    rclpy.init(args=[])
+    node = rclpy.create_node('hazard_display_test')
+    states = {'tiago1': 'Hazard detected', 'tiago2': 'Path clear'}
+
+    def respond(name, response):
+        response.success = states[name] is not None
+        response.message = states[name] or 'No scan map available yet'
+        return response
+
+    clients = {}
+    try:
+        for name in states:
+            service = f'/hazard_display_test/{name}/check_hazard'
+            node.create_service(Trigger, service,
+                                lambda request, response, name=name: respond(name, response))
+            clients[name] = node.create_client(Trigger, service)
+            assert clients[name].wait_for_service(timeout_sec=5.0)
+
+        clients['missing'] = node.create_client(Trigger, '/hazard_display_test/missing')
+        assert cpu_monitor.check_hazards(node, clients) == {
+            'tiago1': 'Hazard detected', 'tiago2': 'Path clear', 'missing': 'Unknown',
+        }
+
+        states.update(tiago1='Path clear', tiago2='Hazard detected')
+        assert cpu_monitor.check_hazards(node, clients) == {
+            'tiago1': 'Path clear', 'tiago2': 'Hazard detected', 'missing': 'Unknown',
+        }
+
+        states['tiago2'] = None
+        assert cpu_monitor.check_hazards(node, clients)['tiago2'] == 'Unknown'
+    finally:
+        node.destroy_node()
+        rclpy.try_shutdown()
 
 
 def test_usage_reporting_and_shutdown(monkeypatch, capsys, tmp_path):
@@ -40,6 +79,9 @@ def test_usage_reporting_and_shutdown(monkeypatch, capsys, tmp_path):
     monkeypatch.setattr(cpu_monitor, 'system_ticks', lambda: next(system))
     monkeypatch.setattr(cpu_monitor, 'process_ticks', lambda _: next(ticks))
     monkeypatch.setattr(cpu_monitor, 'sleep', sleep)
+    monkeypatch.setattr(cpu_monitor, 'check_hazards', lambda node, clients: {
+        'tiago1': 'Hazard detected', 'tiago2': 'Path clear',
+    })
     status_file = tmp_path / 'cpu-usage.json'
     monkeypatch.setattr(cpu_monitor, 'STATUS_FILE', status_file)
     # Restore the handler after main so this test does not affect the test runner.
@@ -60,5 +102,6 @@ def test_usage_reporting_and_shutdown(monkeypatch, capsys, tmp_path):
     sample = json.loads(status_file.read_text())
     assert sample['system'] == 40.0
     assert sample['robots'] == {'tiago1': 10.0, 'tiago2': 20.0}
+    assert sample['hazards'] == {'tiago1': 'Hazard detected', 'tiago2': 'Path clear'}
     assert sample['time'] > 0
     assert first.returncode is not None and second.returncode is not None

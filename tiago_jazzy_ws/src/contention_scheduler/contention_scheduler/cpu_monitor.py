@@ -9,17 +9,43 @@ import subprocess
 import sys
 from time import sleep, time
 
+import rclpy
+from std_srvs.srv import Trigger
+
 STATUS_FILE = Path(os.environ.get('TIAGO_CPU_STATUS_FILE', '/tmp/tiago-cpu-usage.json'))
 
 
-def publish_usage(system, robots):
+def publish_usage(system, robots, hazards):
     """Share the latest sample with the browser desktop, replacing it atomically."""
     try:
         temporary = STATUS_FILE.with_suffix('.tmp')
-        temporary.write_text(json.dumps({'time': time(), 'system': system, 'robots': robots}))
+        temporary.write_text(json.dumps({
+            'time': time(), 'system': system, 'robots': robots, 'hazards': hazards,
+        }))
         temporary.replace(STATUS_FILE)
     except OSError as error:
         print(f'Could not update the desktop CPU display: {error}', file=sys.stderr)
+
+
+def check_hazards(node, clients):
+    """Ask each robot's service; unavailable results stay Unknown."""
+    hazards = {}
+    for name, client in clients.items():
+        hazards[name] = 'Unknown'
+        if not client.service_is_ready():
+            continue
+
+        future = client.call_async(Trigger.Request())
+        rclpy.spin_until_future_complete(node, future, timeout_sec=0.2)
+        if not future.done():
+            client.remove_pending_request(future)
+            continue
+
+        if future.exception() is None:
+            response = future.result()
+            if response.success:
+                hazards[name] = response.message
+    return hazards
 
 
 def system_ticks():
@@ -49,6 +75,9 @@ def main():
     if not names or len(names) != len(set(names)):
         parser.error('Provide at least one robot name, without duplicates.')
 
+    rclpy.init(args=[])
+    node = rclpy.create_node('cpu_monitor')
+    clients = {name: node.create_client(Trigger, f'/{name}/check_hazard') for name in names}
     signal.signal(signal.SIGTERM, stop)
     processes = {}
     try:
@@ -82,7 +111,8 @@ def main():
                 usage = [f'Total system: {system_usage:.2f}%']
                 usage += [f'{name}: {value:.2f}%' for name, value in robot_usage.items()]
                 print(' | '.join(usage), flush=True)
-                publish_usage(system_usage, robot_usage)
+                hazards = check_hazards(node, clients)
+                publish_usage(system_usage, robot_usage, hazards)
             total_before, idle_before, before = total, idle, current
     except KeyboardInterrupt:
         pass
@@ -99,6 +129,8 @@ def main():
             except subprocess.TimeoutExpired:
                 process.kill()
                 process.wait()
+        node.destroy_node()
+        rclpy.try_shutdown()
     return 0
 
 
