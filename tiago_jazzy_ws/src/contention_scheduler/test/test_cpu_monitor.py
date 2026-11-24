@@ -95,12 +95,15 @@ def test_usage_reporting_and_shutdown(monkeypatch, capsys, tmp_path):
     monkeypatch.setattr(cpu_monitor, 'check_hazards', lambda node, clients: {
         'tiago1': 'Hazard detected', 'tiago2': 'Path clear',
     })
-    # Restore the handler after main so this test does not affect the test runner.
-    previous_handler = signal.getsignal(signal.SIGTERM)
+    # Restore the handlers after main so this test does not affect the test runner.
+    previous_handlers = {number: signal.getsignal(number)
+                         for number in (signal.SIGINT, signal.SIGTERM)}
     try:
         assert cpu_monitor.main() == 0
+        assert signal.getsignal(signal.SIGINT) == signal.SIG_IGN  # repeats can't interrupt
     finally:
-        signal.signal(signal.SIGTERM, previous_handler)
+        for number, handler in previous_handlers.items():
+            signal.signal(number, handler)
         for process in [first, second]:
             if process.poll() is None:
                 process.kill()

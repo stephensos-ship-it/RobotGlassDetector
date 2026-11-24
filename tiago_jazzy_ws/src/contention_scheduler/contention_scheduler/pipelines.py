@@ -3,6 +3,7 @@
 import json
 import math
 from pathlib import Path
+import signal
 import time
 
 from geometry_msgs.msg import Twist
@@ -155,6 +156,9 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
+        # Ctrl-C arrives twice, from the terminal and again from the CPU monitor; ignore the
+        # repeat so it doesn't interrupt the shutdown.
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
         node.destroy_node()
         rclpy.try_shutdown()
 

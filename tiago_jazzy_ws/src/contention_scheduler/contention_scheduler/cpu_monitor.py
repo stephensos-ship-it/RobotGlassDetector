@@ -144,6 +144,10 @@ def main():
         print('A pipeline exited while sampling CPU usage.', file=sys.stderr)
         return 1
     finally:
+        # Ctrl-C arrives twice, from the terminal and again from ros2 launch; ignore repeats
+        # so they don't interrupt the bounded waits below while the pipelines stop.
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
         for process in processes.values():
             if process.poll() is None:
                 process.send_signal(signal.SIGINT)
