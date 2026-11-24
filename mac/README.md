@@ -23,7 +23,8 @@ The browser page shows total system CPU usage, each TIAGo pipeline's CPU usage, 
 each robot's hazard service result above the remote desktop. The CPU monitor calls
 each robot's `check_hazard` service on every CPU update (about once per second).
 Hazards show `Hazard detected`, `Path clear`, or `Unknown` when a result is unavailable.
-Start `contention_scheduler pipelines.launch.py` to populate these
+Each row also shows the robot's latest reaction time and stopping distance (see the
+`contention_scheduler` README). Start `contention_scheduler pipelines.launch.py` to populate these
 readings; the page indicates when the monitor is not running. Gazebo's main window
 opens maximized. Run `mac/tiago.sh up` to apply these desktop settings to an existing
 container, then use its new `desktop.html` link. Restart the pipeline launch after

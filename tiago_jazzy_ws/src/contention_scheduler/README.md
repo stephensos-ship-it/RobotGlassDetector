@@ -47,7 +47,8 @@ to rest. Each robot logs two lines per stop, for example (from a run on a Mac):
 [tiago1.pipeline]: At rest 0.83 m from the obstacle.
 ```
 
-The browser desktop shows the same next to each robot's CPU reading: `driving`, then
+The browser desktop shows the same on each robot's row, after its CPU reading and hazard
+result: `driving`, then
 `reaction 0.10 s sim, 0.32 s real · stopped 0.83 m from the box`. If the robot drives on
 (the box was moved, or it got within 5 cm, where the stopping zone doesn't reach), the
 last reaction stays, with `driving again`, until the next stop replaces it. Distances are
