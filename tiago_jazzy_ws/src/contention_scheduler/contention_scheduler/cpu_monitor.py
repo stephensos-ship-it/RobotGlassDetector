@@ -1,4 +1,8 @@
-"""Start one pipeline process per robot and report actual Linux CPU usage."""
+"""Start one pipeline process per robot and report actual Linux CPU usage.
+
+Each pipeline logs its own reaction times; the monitor passes the latest one per robot on to
+the browser desktop alongside the CPU readings and each robot's check_hazard service result.
+"""
 
 import argparse
 import json
@@ -15,12 +19,26 @@ from std_srvs.srv import Trigger
 STATUS_FILE = Path(os.environ.get('TIAGO_CPU_STATUS_FILE', '/tmp/tiago-cpu-usage.json'))
 
 
-def publish_usage(system, robots, hazards):
+def reaction_file(name):
+    """Where a robot's pipeline writes its latest reaction (see reaction.py)."""
+    return STATUS_FILE.with_name(f'tiago-reaction-{name}.json')
+
+
+def read_reaction(name):
+    """The robot's latest reaction, or None before its pipeline has written one."""
+    try:
+        return json.loads(reaction_file(name).read_text())
+    except (OSError, ValueError):
+        return None
+
+
+def publish_usage(system, robots, hazards, reactions):
     """Share the latest sample with the browser desktop, replacing it atomically."""
     try:
         temporary = STATUS_FILE.with_suffix('.tmp')
         temporary.write_text(json.dumps({
             'time': time(), 'system': system, 'robots': robots, 'hazards': hazards,
+            'reactions': reactions,
         }))
         temporary.replace(STATUS_FILE)
     except OSError as error:
@@ -82,9 +100,14 @@ def main():
     processes = {}
     try:
         for name in names:
+            try:
+                reaction_file(name).unlink(missing_ok=True)  # not a previous run's reaction
+            except OSError as error:
+                print(f'Could not clear an old reaction for {name}: {error}', file=sys.stderr)
             command = [
                 sys.executable, '-m', 'contention_scheduler.pipelines',
                 '--ros-args', '-r', f'__ns:=/{name}', '-p', 'use_sim_time:=true',
+                '-p', f'status_file:={reaction_file(name)}',
             ]
             if args.params_file:
                 command += ['--params-file', args.params_file]
@@ -112,7 +135,8 @@ def main():
                 usage += [f'{name}: {value:.2f}%' for name, value in robot_usage.items()]
                 print(' | '.join(usage), flush=True)
                 hazards = check_hazards(node, clients)
-                publish_usage(system_usage, robot_usage, hazards)
+                publish_usage(system_usage, robot_usage, hazards,
+                              {name: read_reaction(name) for name in names})
             total_before, idle_before, before = total, idle, current
     except KeyboardInterrupt:
         pass

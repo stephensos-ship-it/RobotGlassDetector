@@ -28,7 +28,7 @@ def test_process_ticks_handle_spaces_and_parentheses_in_names(monkeypatch):
 def test_hazard_services_report_each_robot_and_clear_unavailable_results():
     rclpy.init(args=[])
     node = rclpy.create_node('hazard_display_test')
-    states = {'tiago1': 'Hazard detected', 'tiago2': 'Path clear'}
+    states: dict[str, str | None] = {'tiago1': 'Hazard detected', 'tiago2': 'Path clear'}
 
     def respond(name, response):
         response.success = states[name] is not None
@@ -68,22 +68,33 @@ def test_usage_reporting_and_shutdown(monkeypatch, capsys, tmp_path):
     system = iter([(1000, 500), (2000, 1100)])
     ticks = iter([10, 20, 110, 220])
     sleeps = iter([None, KeyboardInterrupt()])
+    status_file = tmp_path / 'cpu-usage.json'
+    monkeypatch.setattr(cpu_monitor, 'STATUS_FILE', status_file)
+    stale = tmp_path / 'tiago-reaction-tiago2.json'
+    stale.write_text('{"driving": false, "reaction_sim": 9.9}')  # left by an earlier run
+    reaction = {'driving': False, 'reaction_sim': 0.2, 'reaction_real': 0.9, 'rest_gap': 0.8}
 
     def sleep(_):
         result = next(sleeps)
         if isinstance(result, KeyboardInterrupt):
             raise result
+        # tiago1's pipeline reacts; tiago2's has written nothing yet.
+        (tmp_path / 'tiago-reaction-tiago1.json').write_text(json.dumps(reaction))
+
+    commands = []
+
+    def popen(command):
+        commands.append(command)
+        return next(processes)
 
     monkeypatch.setattr(sys, 'argv', ['cpu_monitor'])
-    monkeypatch.setattr(cpu_monitor.subprocess, 'Popen', lambda _: next(processes))
+    monkeypatch.setattr(cpu_monitor.subprocess, 'Popen', popen)
     monkeypatch.setattr(cpu_monitor, 'system_ticks', lambda: next(system))
     monkeypatch.setattr(cpu_monitor, 'process_ticks', lambda _: next(ticks))
     monkeypatch.setattr(cpu_monitor, 'sleep', sleep)
     monkeypatch.setattr(cpu_monitor, 'check_hazards', lambda node, clients: {
         'tiago1': 'Hazard detected', 'tiago2': 'Path clear',
     })
-    status_file = tmp_path / 'cpu-usage.json'
-    monkeypatch.setattr(cpu_monitor, 'STATUS_FILE', status_file)
     # Restore the handler after main so this test does not affect the test runner.
     previous_handler = signal.getsignal(signal.SIGTERM)
     try:
@@ -104,4 +115,7 @@ def test_usage_reporting_and_shutdown(monkeypatch, capsys, tmp_path):
     assert sample['robots'] == {'tiago1': 10.0, 'tiago2': 20.0}
     assert sample['hazards'] == {'tiago1': 'Hazard detected', 'tiago2': 'Path clear'}
     assert sample['time'] > 0
+    assert sample['reactions'] == {'tiago1': reaction, 'tiago2': None}
+    assert not stale.exists()
+    assert f'status_file:={tmp_path}/tiago-reaction-tiago1.json' in commands[0]
     assert first.returncode is not None and second.returncode is not None

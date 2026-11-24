@@ -56,8 +56,9 @@ input for start, finish, and terminal holds. During the obstacle approach it doe
 override braking or change `/cmd_vel`; perception and pipeline code are unchanged.
 `/trial/status` publishes the latest lifecycle state for other tools. BOX_PLACED means
 Gazebo acknowledged the request, not an exact timestamp of the physical placement.
-Reaction-time measurement belongs to the separate logger; none is calculated here.
-That logger should also restart per trial because simulation time starts over.
+The runner calculates no reaction times; each pipeline logs its own (see the
+[reaction timing notes](../contention_scheduler/README.md)), and they start fresh every
+trial because the trial launch starts new pipeline processes.
 
 ## Manual world
 
