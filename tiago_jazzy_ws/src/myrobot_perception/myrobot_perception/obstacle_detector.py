@@ -2,6 +2,7 @@ import math
 
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Bool
 
@@ -15,12 +16,14 @@ class ObstacleDetector(Node):
 
         scan_topic = self.get_parameter('scan_topic').value
         self.threshold = self.get_parameter('threshold').value
+        
+        self.was_obstacle_detected = False
 
         self.subscription = self.create_subscription(
             LaserScan,
             scan_topic,
             self.scan_callback,
-            10
+            qos_profile_sensor_data
         )
 
         self.publisher = self.create_publisher(
@@ -49,18 +52,26 @@ class ObstacleDetector(Node):
         closest = min(front_ranges)
         detected = closest < self.threshold
 
+        timestamp = self.get_clock().now().to_msg()
+        time_seconds = timestamp.sec + timestamp.nanosec / 1e9
+
         result = Bool()
         result.data = detected
         self.publisher.publish(result)
 
-        if detected:
+        if detected and not self.was_obstacle_detected:
             self.get_logger().warn(
-                f'OBSTACLE DETECTED! Distance: {closest:.2f} m'
+                f'OBSTACLE FIRST DETECTED | '
+                f'Time: {time_seconds:.3f} s | '
+                f'Distance: {closest:.2f} m'
             )
-        else:
+
+        elif not detected and self.was_obstacle_detected:
             self.get_logger().info(
-                f'Path clear. Distance: {closest:.2f} m'
+                f'OBSTACLE CLEARED | Time: {time_seconds:.3f} s'
             )
+
+        self.was_obstacle_detected = detected
 
 
 def main(args=None):
